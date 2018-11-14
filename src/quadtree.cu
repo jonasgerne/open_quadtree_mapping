@@ -1,15 +1,9 @@
-// #pragma once
-#include <vector>
-#include <vector_types.h>
-#include <cuda_toolkit/helper_math.h>
-#include <quadmap/device_image.cuh>
+#include <quadmap/quadtree.cuh>
 
 namespace quadmap
 {
+// kernel
 
-//kernal
-__global__ void quadtree_image_kernal(DeviceImage<int> *quadtree_devptr);
-__global__ void quadtree_depth_kernal(DeviceImage<float> *prior_depth_devptr, DeviceImage<int> *quadtree_devptr);
 //according to the image and depth to select the point;
 //if the depth is available, select the point according to the depth image, level = max(depth_level, image_level)
 //if the depth is not available, level = max(4, image_level)
@@ -73,7 +67,7 @@ __global__ void quadtree_image_kernal(DeviceImage<int> *quadtree_devptr)
   }
   pyramid_level = pyramid_level < 2 ? 2 : pyramid_level;
   quadtree_devptr->atXY(x, y) = pyramid_level;
-  // quadtree_devptr->atXY(x, y) = 2;
+  //quadtree_devptr->atXY(x, y) = 0;
 }
 
 __global__ void quadtree_depth_kernal(DeviceImage<float> *prior_depth_devptr, DeviceImage<int> *quadtree_devptr)
@@ -151,6 +145,7 @@ __global__ void quadtree_depth_kernal(DeviceImage<float> *prior_depth_devptr, De
   int level = max(color_level, pyramid_level);
 
   quadtree_devptr->atXY(x, y) = level;
+  //quadtree_devptr->atXY(x, y) = 0;
 }
 
 }//namespace

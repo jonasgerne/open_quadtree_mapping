@@ -34,14 +34,17 @@ public:
   Depthmap(
       size_t width,
       size_t height,
+      size_t cost_downsampling,
       float fx,
       float cx,
       float fy,
       float cy,
       cv::Mat remap_1,
       cv::Mat remap_2,
-      int semi2dense_ratio
-      );
+      int semi2dense_ratio,
+      bool doBeliefPropagation,
+      bool useQuadtree,
+      float P1, float P2);
 
   bool add_frames(  const cv::Mat &img_curr,
                     const SE3<float> &T_curr_world);
@@ -49,6 +52,8 @@ public:
   const cv::Mat_<float> getDepthmap() const;
   const cv::Mat_<float> getDebugmap() const;
   const cv::Mat getReferenceImage() const;
+  const cv::Mat getEpipolarImage() const;
+  const cv::Mat getKeyframeImage() const;
 
   float getFx() const
   { return fx_; }
@@ -79,6 +84,7 @@ private:
   size_t width_;
   size_t height_;
   float fx_, fy_, cx_, cy_;
+  bool doBeliefPropagation;
 
   std::mutex ref_img_mutex_;
 
@@ -86,6 +92,8 @@ private:
   cv::Mat depth_out;
   cv::Mat reference_out;
   cv::Mat debug_out;
+  cv::Mat epipolar_out;
+  cv::Mat keyframe_out;
 };
 
 }

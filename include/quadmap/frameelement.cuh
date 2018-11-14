@@ -6,7 +6,7 @@
 #include <quadmap/se3.cuh>
 #include <quadmap/device_image.cuh>
 
-#define KEYFRAME_NUM 60
+#define KEYFRAME_NUM 10 //60
 
 namespace quadmap
 {

@@ -1,6 +1,4 @@
-#include <quadmap/device_image.cuh>
-#include <quadmap/stereo_parameter.cuh>
-#include <ctime>
+#include <quadmap/depth_extract.cuh>
 
 namespace quadmap
 {
@@ -138,28 +136,39 @@ __global__ void image_to_cost(
 	DeviceImage<PIXEL_COST> *cost_devptr,
 	DeviceImage<int> *num_devptr)
 {
-	const int x = blockIdx.x*4;
-	const int y = blockIdx.y*4;
+    const int cost_downsampling = match_parameter_devptr->cost_downsampling;
+
+	const int x = blockIdx.x*cost_downsampling;
+	const int y = blockIdx.y*cost_downsampling;
 	const int depth_id = threadIdx.x;
 	const int frame_id = threadIdx.y;
+    //const int num_frames = threadsPerBlock.y;
 	const int width = age_table_devptr->width;
 	const int height = age_table_devptr->height;
 	const int frame_num = match_parameter_devptr->current_frames;
 	const int my_quadsize = 1 << tex2D(quadtree_tex, x, y);
 
-	if (x >= width -1 || y >= height - 1 || x <= 0 || y <= 0 || x % my_quadsize != 0 || y % my_quadsize != 0 )
+    // Check out of bounds
+	if (x >= width -1 || y >= height - 1 || x <= 0 || y <= 0)
 		return;
+
+    if (((x % my_quadsize) != 0) || ((y % my_quadsize) != 0))
+        return;
 
 	int this_age = age_table_devptr->atXY(x,y);
 
 	if(this_age >= frame_num)
 		this_age = frame_num - 1;
-	if(this_age < 10)
-		this_age = 9;
+	//if(this_age < 10)
+	//	this_age = 9;
 
-	__shared__ float cost[DEPTH_NUM][10];
-	__shared__ float aggregate_num[DEPTH_NUM][10];
-	const int my_frame_id = (float) this_age / 10.0 * (float) frame_id;
+    extern __shared__ float s[];
+    float* cost = s;
+    float* aggregate_num = &s[DEPTH_NUM * frame_num];
+	/*__shared__ float cost[DEPTH_NUM][10];
+	__shared__ float aggregate_num[DEPTH_NUM][10];*/
+	//const int my_frame_id = (float) this_age / 10.0 * (float) frame_id;
+    const int my_frame_id = frame_id;
 
 	//read memory
 	PinholeCamera camera = match_parameter_devptr->camera_model;
@@ -176,7 +185,8 @@ __global__ void image_to_cost(
 	//calculate
 	const SE3<float> income_to_ref = my_reference.transform;
 	float3 my_dir = normalize(camera.cam2world(make_float2(x, y)));
-	float my_depth = 1.0 / (STEP_INV_DEPTH * depth_id + MIN_INV_DEPTH);
+	//float my_depth = 1.0 / (STEP_INV_DEPTH * depth_id + MIN_INV_DEPTH);
+    float my_depth = (STEP_DEPTH * depth_id + MIN_DEP);
 	float2 project_point = camera.world2cam(income_to_ref*(my_dir*my_depth));
 	int point_x = project_point.x + 0.5;
 	int point_y = project_point.y + 0.5;
@@ -185,8 +195,10 @@ __global__ void image_to_cost(
 	float v2u = income_to_ref.data(0,1);
 	float v2v = income_to_ref.data(1,1);
 
+    // Check bounds
 	if( point_x >= 2 && point_x < width - 2 && point_y >= 2 && point_y < height - 2)
 	{
+        // Sum cost over 3x3 patch
 		float my_cost = 0.0;
 		for(int j = -1; j <= 1; j++)
 		{
@@ -197,34 +209,38 @@ __global__ void image_to_cost(
 				my_cost += fabs(my_patch[i+1][j+1] - my_reference.frame_ptr->atXY(check_x, check_y));
 			}
 		}
-		cost[depth_id][frame_id] = my_cost;
-		aggregate_num[depth_id][frame_id] = 1;
+		cost[depth_id * frame_num + frame_id] = my_cost;
+		aggregate_num[depth_id * frame_num + frame_id] = 1;
 	}
 	else
 	{
-		cost[depth_id][frame_id] = 0;
-		aggregate_num[depth_id][frame_id] = 0;
+		cost[depth_id * frame_num + frame_id] = 0;
+		aggregate_num[depth_id * frame_num + frame_id] = 0;
 	}
 	__syncthreads();
-	for(int r = 8; r > 0; r /= 2)
+
+    // Sum reduce over all frames
+	for(int r = frame_num / 2; r > 0; r /= 2)
 	{
 		if(frame_id + r < blockDim.y && frame_id < r)
 		{
-		  cost[depth_id][frame_id] += cost[depth_id][frame_id+r];
-		  aggregate_num[depth_id][frame_id] += aggregate_num[depth_id][frame_id+r];
+		  cost[depth_id * frame_num + frame_id] += cost[depth_id * frame_num + frame_id + r];
+		  aggregate_num[depth_id * frame_num + frame_id] += aggregate_num[depth_id * frame_num + frame_id + r];
 		}
 		__syncthreads();
 	}
 
+    // Write cost over all frames
 	if(frame_id == 0)
 	{
-		float my_depth_cost = cost[depth_id][0];
-		if(aggregate_num[depth_id][0] > 0)
-			my_depth_cost = my_depth_cost / (float)aggregate_num[depth_id][0] / 255.0f;
+		float my_depth_cost = cost[depth_id * frame_num];
+		if(aggregate_num[depth_id * frame_num] > 0)
+			my_depth_cost = my_depth_cost / (float)aggregate_num[depth_id * frame_num] / 255.0f;
 		else
 			my_depth_cost = 100;
-		atomicAdd(cost_devptr->atXY(x/4,y/4).cost_ptr(depth_id), my_depth_cost);
-		atomicAdd(num_devptr->ptr_atXY(x/4,y/4),1);
+        // Write cost and counter
+		atomicAdd(cost_devptr->atXY(x / cost_downsampling,y / cost_downsampling).cost_ptr(depth_id), my_depth_cost);
+		atomicAdd(num_devptr->ptr_atXY(x / cost_downsampling, y / cost_downsampling), 1);
 	}
 }
 
@@ -259,6 +275,7 @@ __global__ void naive_extract(
 	min_id[depth_id] = depth_id;
 	__syncthreads();
 
+    // Find minimum
 	for(int i = DEPTH_NUM / 2; i > 0; i /= 2)
 	{
 		if( depth_id < i && min_cost[depth_id+i] < min_cost[depth_id])
@@ -269,6 +286,7 @@ __global__ void naive_extract(
 		__syncthreads();
 	}
 
+    // Reduce min index
 	if(depth_id == 0)
 	{
 		float disparity;
@@ -276,13 +294,15 @@ __global__ void naive_extract(
 			disparity = min_id[0];
 		else
 		{
+            // Interpolate
 			float cost_pre = cost[min_id[0] - 1];
 			float cost_post = cost[min_id[0] + 1];
 			float a = cost_pre - 2.0f * min_cost[0] + cost_post;
 			float b = - cost_pre + cost_post;
 			disparity = (float) min_id[0] - b / (2.0f * a);
 		}
-		coarse_depth_devptr->atXY(x,y) = 1.0 / (STEP_INV_DEPTH * disparity + MIN_INV_DEPTH);
+		//coarse_depth_devptr->atXY(x,y) = 1.0 / (STEP_INV_DEPTH * disparity + MIN_INV_DEPTH);
+        coarse_depth_devptr->atXY(x, y) = (STEP_DEPTH * disparity + MIN_DEP);
 	}
 }
 

@@ -56,6 +56,26 @@ inline void bindTexture(
         mem.height,
         mem.pitch
         );
+
+  //cudaArray* myArray; // declar.
+  //                    // ask for memory
+  //cudaChannelFormatDesc desc = mem.getCudaChannelFormatDesc();
+  //cudaMallocArray(&myArray,
+  //    &desc,
+  //    mem.width,
+  //    mem.height);
+
+  //cudaMemcpyToArray(myArray, // destination: the array
+  //    0, 0, // offsets 
+  //    mem.data, // pointer uint*
+  //    mem.width*mem.height*sizeof(ElementType), // total amount of bytes to be copied 
+  //    cudaMemcpyDeviceToDevice);
+
+  //const cudaError bindStatus = cudaBindTextureToArray(tex, myArray, desc);
+
+  //ElementType* debug = new ElementType[mem.width*mem.height * sizeof(ElementType)];
+  //cudaMemcpyFromArray(debug, myArray, 0, 0, mem.width*mem.height * sizeof(ElementType), cudaMemcpyDeviceToHost);
+
   if(bindStatus != cudaSuccess)
   {
     throw CudaException("Unable to bind texture: ", bindStatus);

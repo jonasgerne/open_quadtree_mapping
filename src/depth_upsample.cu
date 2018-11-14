@@ -1,21 +1,7 @@
-#include <cuda_toolkit/helper_math.h>
-#include <quadmap/device_image.cuh>
-#include <quadmap/texture_memory.cuh>
-#include <quadmap/match_parameter.cuh>
-#include <quadmap/pixel_cost.cuh>
-#include <ctime>
+#include <quadmap/depth_upsample.cuh>
 
 namespace quadmap
 {
-//function declear here!
-void global_upsample(DeviceImage<float> &sparse_depth, DeviceImage<float> &depth);
-void local_upsample(DeviceImage<float> &sparse_image, DeviceImage<float> &dense_image);
-__global__ void build_weight_row(DeviceImage<float> *row_weight_devptr);
-__global__ void build_weight_col(DeviceImage<float> *col_weight_devptr);
-__global__ void smooth_row(DeviceImage<float> *sparse_devptr, DeviceImage<float> *row_weight_devptr, DeviceImage<float3> *temp_devptr, DeviceImage<float2> *smooth_devptr);
-__global__ void smooth_col(DeviceImage<float2> *row_smooth_devptr, DeviceImage<float> *col_weight_devptr, DeviceImage<float3> *temp_devptr, DeviceImage<float> *smooth_devptr);
-__global__ void depth_interpolate(  DeviceImage<float> *featuredepth_devptr,
-                                    DeviceImage<float> *depth_devptr);
 //function define here!
 void global_upsample(DeviceImage<float> &sparse_depth, DeviceImage<float> &depth)
 {
@@ -23,6 +9,7 @@ void global_upsample(DeviceImage<float> &sparse_depth, DeviceImage<float> &depth
 	const int height = sparse_depth.height;
 
 	/*build weight*/
+    // Compute intensity gradient based weights in x and y direction
 	DeviceImage<float> row_weight(width+1, height);
 	DeviceImage<float> col_weight(width, height+1);
 	row_weight.zero();
@@ -55,6 +42,7 @@ void global_upsample(DeviceImage<float> &sparse_depth, DeviceImage<float> &depth
 	smooth_col<<<smooth_col_grid, smooth_col_block>>>(smooth_temp_data.dev_ptr, col_weight.dev_ptr, temp_data.dev_ptr, depth.dev_ptr);
 	cudaDeviceSynchronize();
 }
+
 __global__ void build_weight_row(DeviceImage<float> *row_weight_devptr)
 {
 	const int x = threadIdx.x + blockIdx.x * blockDim.x;

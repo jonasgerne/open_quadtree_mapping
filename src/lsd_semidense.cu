@@ -1,66 +1,7 @@
-#include <quadmap/device_image.cuh>
-#include <quadmap/stereo_parameter.cuh>
-#include <ctime>
-
-//for camera model
-#define fx(camera_para) camera_para.x
-#define cx(camera_para) camera_para.y
-#define fy(camera_para) camera_para.z
-#define cy(camera_para) camera_para.w
+#include <quadmap/lsd_semidense.cuh>
 
 namespace quadmap
 {
-__global__ void initialize_keyframe_kernel(
-	DeviceImage<DepthSeed> *new_keyframe_devptr);
-__global__ void initialize_keyframe_kernel(
-	DeviceImage<DepthSeed> *new_keyframe_devptr,
-	DeviceImage<int> *transtable_devptr,
-	DeviceImage<float3> *new_info_devptr);
-__global__ void propogate_keyframe_kernel(
-	DeviceImage<DepthSeed> *old_keyframe_devptr,
-	float4 camera_para, SE3<float> old_to_new,
-	DeviceImage<int> *transtable_devptr,
-	DeviceImage<float3> *new_info_devptr);
-__global__ void regulizeDepth_kernel(
-	DeviceImage<DepthSeed> *keyframe_devptr,
-	bool removeOcclusions);
-__global__ void regulizeDepth_FillHoles_kernel(
-	DeviceImage<DepthSeed> *keyframe_devptr);
-__global__ void update_keyframe_kernel(
-	DeviceImage<DepthSeed> *keyframe_devptr,
-	float4 camera_para,
-	SE3<float> key_to_income,
-	DeviceImage<float> *debug_devptr);
-__global__ void depth_project_kernel(
-	DeviceImage<DepthSeed> *keyframe_devptr,
-	float4 camera_para,
-	SE3<float> key_to_income,
-	DeviceImage<float> *depth);
-__global__ void depth_project_kernel(
-	DeviceImage<DepthSeed> *keyframe_devptr,
-	float4 camera_para,
-	SE3<float> key_to_income,
-	DeviceImage<float2> *depth);
-__device__ __forceinline__ float search_point(
-  	const int &x,
-  	const int &y,
-  	const int &width,
-  	const int &height,
-  	const float2 &epipolar_line,
-  	const float &gradient_max,
-  	const float &my_gradient,
-  	const float &min_idep,
-  	const float &max_idep,
-  	const float4 &camera_para,
-  	const SE3<float> &key_to_income,
-  	float &result_idep,
-  	float &result_var,
-  	float &result_eplength);
-__device__ __forceinline__ float subpixle_interpolate(
-	const float &pre_cost,
-	const float &cost,
-	const float &post_cost);
-
 __global__ void initialize_keyframe_kernel(DeviceImage<DepthSeed> *new_keyframe_devptr)
 {
 	const int x = threadIdx.x + blockIdx.x * blockDim.x;
@@ -71,7 +12,11 @@ __global__ void initialize_keyframe_kernel(DeviceImage<DepthSeed> *new_keyframe_
 	if (x >= width - 3 || y >= height - 3 || x <= 2 || y <= 2)
 		return;
 
-	float2 this_gradient = tex2D(income_gradient_tex, x + 0.5, y + 0.5);
+    /*float intensity_0 = tex2D(income_image_tex, 0.5f, 0.5f);
+    float2 gradient_0 = tex2D(income_gradient_tex, 0.5f, 0.5f);
+    printf("X: %d | Y:%d | Gradient: %f,%f | Color: %f\n", 0, 0, gradient_0.x, gradient_0.y, intensity_0);*/
+
+	float2 this_gradient = tex2D(income_gradient_tex, x + 0.5f, y + 0.5f);
 	float gradient_mag_2 = dot(this_gradient, this_gradient);
 
 	if (gradient_mag_2 < MIN_GRAIDIENT * MIN_GRAIDIENT)
@@ -198,23 +143,34 @@ __global__ void depth_project_kernel(
 	if( ! keyseed.is_vaild() )
 		return;
 
-	if( keyseed.vaild_counter() < 20 )
-		return;
+	//if( keyseed.vaild_counter() < 20 )
+	//	return;
 
-	// depth->atXY(x,y) = 1.0f/ keyseed.smooth_idepth();
-	// return;
+    // DEBUG
+	/*depth->atXY(x,y) = 1.0f / keyseed.idepth();
+	return;*/
 
 	///*project to the new frame*///
+    // Back project
 	float3 key_point = make_float3((x - cx(camera_para))/fx(camera_para), (y - cy(camera_para))/fy(camera_para), 1.0);
-	key_point /= keyseed.smooth_idepth();
+	//key_point /= keyseed.smooth_idepth();
+    key_point /= keyseed.idepth();
+
+    // Transform
 	float3 new_point = key_to_income * key_point;
 
+    // Compute new idepth
 	float new_idepth = 1.0f / new_point.z;
+    // Project
 	int new_x = new_point.x * new_idepth * fx(camera_para) + cx(camera_para) + 0.5;
 	int new_y = new_point.y * new_idepth * fy(camera_para) + cy(camera_para) + 0.5;
 
 	if(new_x <= 2 || new_x >= width - 3 || new_y <= 2 || new_y >= height - 3)
 		return;
+
+    // DEBUG
+    /*depth->atXY(new_x, new_y) = length(new_point);
+    return;*/
 
 	// ///*check gradient*///
 	float2 new_gradient = tex2D(income_gradient_tex, new_x + 0.5, new_y + 0.5);
@@ -222,6 +178,7 @@ __global__ void depth_project_kernel(
 	if( new_gradient_2 < MIN_GRAIDIENT * MIN_GRAIDIENT)
 		return;
 
+    // Check color difference
 	float old_color = tex2D(keyframe_image_tex, x+0.5, y+0.5);
 	float new_color = tex2D(income_image_tex, new_x+0.5, new_y+0.5);
 	float diff_color = old_color - new_color;
@@ -231,8 +188,8 @@ __global__ void depth_project_kernel(
 	//try to add
 	//ignore the occultion
 	float new_depth = length(new_point);
-	if(new_depth!=new_depth || keyseed.smooth_variance() > 0.02)
-		return;
+	//if(new_depth!=new_depth || keyseed.smooth_variance() > 0.02)
+	//	return;
 
 	depth->atXY(new_x,new_y) = new_depth;
 	// depth->atXY(x,y) = 1.0/keyseed.smooth_idepth();
@@ -394,12 +351,14 @@ __global__ void regulizeDepth_FillHoles_kernel(DeviceImage<DepthSeed> *keyframe_
 	}
 }
 
-__global__ void update_keyframe_kernel(DeviceImage<DepthSeed> *keyframe_devptr, float4 camera_para, SE3<float> key_to_income, DeviceImage<float> *debug_devptr)
+__global__ void update_keyframe_kernel(DeviceImage<DepthSeed> *keyframe_devptr, float4 camera_para, SE3<float> key_to_income, DeviceImage<float> *debug_devptr, DeviceImage<float4> *epipolar_devptr)
 {
 	const int x = threadIdx.x + blockIdx.x * blockDim.x;
 	const int y = threadIdx.y + blockIdx.y * blockDim.y;
 	const int width = keyframe_devptr->width;
 	const int height = keyframe_devptr->height;
+
+    epipolar_devptr->atXY(x, y) = make_float4(-1.0f);
 
 	if (x >= width - 3 || y >= height - 3 || x <= 2 || y <= 2)
 		return;
@@ -451,8 +410,8 @@ __global__ void update_keyframe_kernel(DeviceImage<DepthSeed> *keyframe_devptr, 
 	float search_max_idep = MAX_INV_DEPTH;
 	if(!first_observe)
 	{
-		float search_min_idep = depthseed.smooth_idepth() - 2.0 * sqrtf(depthseed.smooth_variance());
-		float search_max_idep = depthseed.smooth_idepth() + 2.0 * sqrtf(depthseed.smooth_variance());
+		search_min_idep = depthseed.smooth_idepth() - 2.0 * sqrtf(depthseed.smooth_variance());
+		search_max_idep = depthseed.smooth_idepth() + 2.0 * sqrtf(depthseed.smooth_variance());
 		search_min_idep = search_min_idep < MIN_INV_DEPTH ? MIN_INV_DEPTH : search_min_idep;
 		search_max_idep = search_max_idep > MAX_INV_DEPTH ? MAX_INV_DEPTH : search_max_idep;
 	}
@@ -460,7 +419,7 @@ __global__ void update_keyframe_kernel(DeviceImage<DepthSeed> *keyframe_devptr, 
 	search_error = search_point(
 		x,y,width,height,epiline,
 		gradient_max,gradient_alone_epipolar,search_min_idep,search_max_idep,camera_para,key_to_income,
-		result_idep,result_var,result_eplength);
+		result_idep,result_var,result_eplength, epipolar_devptr->atXY(x, y));
 
 	float deff_idep = result_idep - depthseed.smooth_idepth();
 
@@ -540,7 +499,8 @@ float search_point(
   	const SE3<float> &key_to_income,
   	float &result_idep,
   	float &result_var,
-  	float &result_eplength)
+  	float &result_eplength,
+    float4& result_epipolar)
 {
   	//read patch
   	float this_patch[5];
@@ -555,12 +515,25 @@ float search_point(
   	float3 KRKiP = make_float3(fx(camera_para)*RKiP.x + cx(camera_para)*RKiP.z, fy(camera_para)*RKiP.y + cy(camera_para)*RKiP.z, RKiP.z);
   	float3 KT = make_float3(fx(camera_para)*T.x + cx(camera_para)*T.z, fy(camera_para)*T.y + cy(camera_para)*T.z, T.z);
 
+    
   	float3 near_point = KRKiP + KT * max_idep;
   	float3 far_point = KRKiP + KT * min_idep;
+
+    // if the assumed close-point lies behind the image, have to change that.
+    if (near_point.z < 0.001f)
+    {
+        // KRKip.z + KT.z * id != 0
+        // => id = -KRKip-z / KT.z
+        float max_idepth = (0.001f - KRKiP.z) / (KT.z + FLT_EPSILON);
+        near_point = KRKiP + KT * max_idepth;
+        //printf("Max idepth %f | Max idepth adj %f | NearPoint Z %f | Tz %f\n", max_idep, max_idepth, near_point.z, T.z);
+    }
+
   	float2 near_uv 	= make_float2(near_point.x / near_point.z, near_point.y / near_point.z);
   	float2 far_uv 	= make_float2(far_point.x / far_point.z, far_point.y / far_point.z);
-  	float search_length =length(near_uv-far_uv);
-  	float2 search_dir = (near_uv-far_uv) / search_length;
+  	float search_length = length(near_uv-far_uv);
+    float2 search_segment = (near_uv - far_uv);
+  	float2 search_dir = search_segment / search_length;
 
   	if(search_length < 3.0)
   	{
@@ -570,6 +543,15 @@ float search_point(
   	}
   	if(far_uv.x <= 1 || far_uv.y <= 1 || far_uv.x >= width-2 || far_uv.y >= height-2)
   		return -1;
+
+    float max_epl_length_crop = 100.0f;
+    if (search_length > max_epl_length_crop)
+    {
+        near_uv = far_uv + search_segment * max_epl_length_crop / search_length;
+    }
+
+    // Save epipolar points
+    result_epipolar = make_float4(near_uv.x, near_uv.y, far_uv.x, far_uv.y);
 
   	//warp infomation
   	float that_patch[5];
@@ -667,7 +649,7 @@ float search_point(
 	float best_match_sub = best_step;
 	bool didSubpixel = false;
 	//subpixel
-	{
+	if(false) {
 		// ================== compute exact match =========================
 		// compute gradients (they are actually only half the real gradient)
 		float gradPre_pre = -(pre_best_score - best_match_DiffErrPre);
