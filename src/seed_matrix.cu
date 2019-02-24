@@ -23,7 +23,7 @@
 #include "depth_fusion.cu"
 
 #define NEW_KEYFRAME_MAX_ANGLE 0.86
-#define NEW_KEYFRAME_MAX_DISTANCE 5.0 // 0.5
+#define NEW_KEYFRAME_MAX_DISTANCE 0.5
 
 quadmap::SeedMatrix::SeedMatrix(
     const size_t &_width,
@@ -520,7 +520,7 @@ void quadmap::SeedMatrix::extract_depth()
   bindTexture(income_gradient_tex, income_gradient);
 
   //prepare the reference data
-  printf("  we have %d frames.\n", framelist_host.size());
+  printf("  we have %d of %d frames.\n", framelist_host.size(), KEYFRAME_NUM);
   for(int i = 0; i < framelist_host.size(); i++)
   {
     FrameElement this_ele = framelist_host[i];
@@ -573,6 +573,7 @@ void quadmap::SeedMatrix::extract_depth()
   // printf("  prior to cost cost %f ms \n", ( std::clock() - depth_extract_start ) / (double) CLOCKS_PER_SEC * 1000);depth_extract_start = std::clock();
 
   /*add cost from image list*/
+  clock_t cost_start = std::clock();
   dim3 cost_block;
   dim3 cost_grid;
   cost_block.x = DEPTH_NUM;
@@ -587,7 +588,9 @@ void quadmap::SeedMatrix::extract_depth()
 
   cudaDeviceSynchronize();
   printf("CUDA Status %s\n", cudaGetErrorString(cudaGetLastError()));
-  printf("  cost aggregation cost %f ms \n", ( std::clock() - depth_extract_start ) / (double) CLOCKS_PER_SEC * 1000);depth_extract_start = std::clock();
+  printf("  cost aggregation cost %f ms \n", ( std::clock() - cost_start ) / (double) CLOCKS_PER_SEC * 1000);
+
+  printf("  total cost aggregation cost %f ms \n", ( std::clock() - depth_extract_start ) / (double) CLOCKS_PER_SEC * 1000);depth_extract_start = std::clock();
 
   //normalize the cost
   dim3 normalize_block;

@@ -115,15 +115,18 @@ __global__ void quadtree_depth_kernal(DeviceImage<float> *prior_depth_devptr, De
 
     if(I_AM_LAST_NODE && (level_x != local_x || level_y != local_y))
     {
+      // Accumulate depth and votes
       atomicAdd(&(pyramid_invdepth[level_x][level_y]), pyramid_invdepth[local_x][local_y]);
       atomicAdd(&(pyramid_num[level_x][level_y]), pyramid_num[local_x][local_y]);
     }
     approve[level_x][level_y] = true;
     __syncthreads();
 
+    // If not all pixels voted skip
     if(pyramid_num[level_x][level_y] != num_pixels)
       break;
 
+    // Check std deviation, if any is above 0.01f, do not approve this level
     average_invdepth = pyramid_invdepth[level_x][level_y] / float(num_pixels);
     if( fabs(my_invdepth - average_invdepth) > 0.01f )
     {
