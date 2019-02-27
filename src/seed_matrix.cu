@@ -32,6 +32,7 @@ quadmap::SeedMatrix::SeedMatrix(
     const PinholeCamera &cam,
     bool doBeliefPropagation,
     bool useQuadtree,
+    bool doFusion,
     float P1, float P2)
   : width(_width)
   , height(_height)
@@ -54,6 +55,7 @@ quadmap::SeedMatrix::SeedMatrix(
   , initialized(false)
   , doBeliefPropagation(doBeliefPropagation)
   , useQuadtree(useQuadtree)
+  , doFusion(doFusion)
   , P1(P1)
   , P2(P2)
   , frame_index(0)
@@ -202,7 +204,8 @@ bool quadmap::SeedMatrix::add_frames(
 
   if(has_depth_output)
   {
-    fuse_output_depth();
+    if(doFusion)
+      fuse_output_depth();
     download_output();
   }
   return has_depth_output;
@@ -648,7 +651,6 @@ void quadmap::SeedMatrix::extract_depth()
 
 void quadmap::SeedMatrix::fuse_output_depth()
 {
-  return;
   bindTexture(pre_image_tex, pre_income_image);
   bindTexture(income_image_tex, income_image);
 

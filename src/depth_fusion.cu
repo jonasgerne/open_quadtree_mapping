@@ -113,6 +113,7 @@ __global__ void hole_filling(DeviceImage<int> *transform_table_devptr)
   if(transform_i == 0)
     return;
 
+  // Propagate depth to neighbors, if they are not set
   for(int i = -1; i <= 1; i++)
   {
     for(int j = -1; j <= 1; j++)
@@ -146,6 +147,8 @@ __global__ void fuse_currentmap(
   if(depth_estimate <= 0.0f)
     uncertianity = 1e9;
 
+  //printf("Uncertainty %f\n", uncertianity);
+
   int pre_position = transform_table_devptr->atXY(x,y);
   float4 pixel_info;
   if(pre_position > 0)
@@ -155,8 +158,8 @@ __global__ void fuse_currentmap(
     pixel_info = make_float4(initial_a, initial_b, depth_estimate, initial_variance);
   }
 
-  if( (depth_estimate - pixel_info.z)*(depth_estimate - pixel_info.z) > uncertianity + pixel_info.w)
-     pixel_info = make_float4(initial_a, initial_b, depth_estimate, initial_variance);
+//  if( (depth_estimate - pixel_info.z)*(depth_estimate - pixel_info.z) > uncertianity + pixel_info.w)
+//     pixel_info = make_float4(initial_a, initial_b, depth_estimate, initial_variance);
 
   //orieigin info
   float a = pixel_info.x;
@@ -183,6 +186,14 @@ __global__ void fuse_currentmap(
   const float4 updated = make_float4(a_prime, b_prime, mu_prime, sigma_prime);
 
   __syncthreads();
+
+//  depth_output_devptr->atXY(x,y) = mu_prime;
+//  return;
+
+  // (point_info.x /(point_info.x + point_info.y) > 0.60)
+  //if(pre_position > 0)
+//  if (pixel_info.x /(pixel_info.x + pixel_info.y) > 0.6) // inlier ratio: a / (a + b)
+//    printf("%f / (%f + %f) = %f > 0.6\n", pixel_info.x, pixel_info.x, pixel_info.y, pixel_info.x /(pixel_info.x + pixel_info.y));
 
   if(is_goodpoint(pixel_info))
     depth_output_devptr->atXY(x,y) = mu_prime;

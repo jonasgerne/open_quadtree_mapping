@@ -120,10 +120,16 @@ int main(int argc, char **argv)
   if(!quadmap::checkCudaDevice(argc, argv))
     return EXIT_FAILURE;
 
+  // Additional parameters
+  // frameelement.cuh:9 KEYFRAME_NUM
+  // stereo_parameter.cuh:all
+  // pixel_cost.cuh:4 DEPTH_NUM
+  // depth_fusion.cuh
+
   int semi2dense_ratio = 1; // 5
   int cost_downsampling = 1;
   bool doBeliefPropagation = true;
-  bool useQuadtree = false;
+  bool display_enabled = false;
   float P1 = 0.003f;
   float P2 = 0.01f;
 
@@ -135,6 +141,11 @@ int main(int argc, char **argv)
 
   // Read intrinsics
   std::string intrinsicsPath = argv[1];
+  std::string posesPath = argv[2];
+  std::string rgbPattern = argv[3];
+  bool useQuadtree = atoi(argv[4]);
+  bool doFusion = atoi(argv[5]);
+
   std::ifstream intrinFile(intrinsicsPath);
   Eigen::Matrix<float, 3, 3, Eigen::RowMajor> intrinsics;
   std::string line;
@@ -156,7 +167,6 @@ int main(int argc, char **argv)
   float cy = intrinsics(1, 2);
 
   // Read poses
-  std::string posesPath = argv[2];
   std::ifstream posesFile(posesPath);
   std::vector<Eigen::Matrix<float, 4, 4, Eigen::RowMajor> > poses;
 
@@ -192,7 +202,6 @@ int main(int argc, char **argv)
   }
 
   // Initialize image size
-  std::string rgbPattern = argv[3];
   char buffer[255];
   sprintf(buffer, rgbPattern.c_str(), 0);
   cv::Mat imgRaw = cv::imread(buffer, cv::IMREAD_GRAYSCALE);
@@ -213,7 +222,7 @@ int main(int argc, char **argv)
       CV_32FC1,
       undist_map1, undist_map2);
 
-  std::shared_ptr<quadmap::Depthmap> depthmap_ = std::make_shared<quadmap::Depthmap>(width, height, cost_downsampling, fx, cx, fy, cy, undist_map1, undist_map2, semi2dense_ratio, doBeliefPropagation, useQuadtree, P1, P2);
+  std::shared_ptr<quadmap::Depthmap> depthmap_ = std::make_shared<quadmap::Depthmap>(width, height, cost_downsampling, fx, cx, fy, cy, undist_map1, undist_map2, semi2dense_ratio, doBeliefPropagation, useQuadtree, doFusion, P1, P2);
 
   // Run
   for (int idx = 0; idx < poses.size(); idx++)
@@ -239,6 +248,7 @@ int main(int argc, char **argv)
           cv::Mat keyframe;
           cv::cvtColor(keyframe_mat, keyframe, cv::COLOR_GRAY2BGR);
           cv::Mat depthmap_mat = depthmap_->getDepthmap();
+          cv::minMaxIdx(depthmap_mat, &minVal, &maxVal);
           sprintf(buffer, "%010d.pfm", idx);
           savePFM(depthmap_mat, buffer);
           cv::minMaxIdx(depthmap_mat, &minVal, &maxVal);
@@ -272,12 +282,14 @@ int main(int argc, char **argv)
                   }
               }
           }*/
-          display("Keyframe", keyframe);
-          display("Reference", reference_mat);
-          display("Depth", depthColor);
-          display("Debug", debug_mat);
-          //display("Epipolar", epipolar);
-          cv::waitKey(1);
+          if(display_enabled) {
+              display("Keyframe", keyframe);
+              display("Reference", reference_mat);
+              display("Depth", depthColor);
+              display("Debug", debug_mat);
+              //display("Epipolar", epipolar);
+              cv::waitKey(1);
+          }
       }
   }
 

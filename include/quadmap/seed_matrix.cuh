@@ -48,6 +48,7 @@ public:
       const PinholeCamera &cam,
       bool doBeliefPropagation,
       bool useQuadtree,
+      bool doFusion,
       float P1, float P2);
   ~SeedMatrix();
 
@@ -96,6 +97,7 @@ private:
   bool initialized;
   bool doBeliefPropagation;
   bool useQuadtree;
+  bool doFusion;
 
   // BP Parameters
   float P1;

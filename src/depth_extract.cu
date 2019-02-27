@@ -185,8 +185,11 @@ __global__ void image_to_cost(
 	//calculate
 	const SE3<float> income_to_ref = my_reference.transform;
 	float3 my_dir = normalize(camera.cam2world(make_float2(x, y)));
-	//float my_depth = 1.0 / (STEP_INV_DEPTH * depth_id + MIN_INV_DEPTH);
+#ifdef USE_INVERSE_DEPTH
+	float my_depth = 1.0 / (STEP_INV_DEPTH * depth_id + MIN_INV_DEPTH);
+#else
     float my_depth = (STEP_DEPTH * depth_id + MIN_DEP);
+#endif
 	float2 project_point = camera.world2cam(income_to_ref*(my_dir*my_depth));
 	int point_x = project_point.x + 0.5;
 	int point_y = project_point.y + 0.5;
@@ -301,8 +304,11 @@ __global__ void naive_extract(
 			float b = - cost_pre + cost_post;
 			disparity = (float) min_id[0] - b / (2.0f * a);
 		}
-		//coarse_depth_devptr->atXY(x,y) = 1.0 / (STEP_INV_DEPTH * disparity + MIN_INV_DEPTH);
+#ifdef USE_INVERSE_DEPTH
+		coarse_depth_devptr->atXY(x,y) = 1.0 / (STEP_INV_DEPTH * disparity + MIN_INV_DEPTH);
+#else
         coarse_depth_devptr->atXY(x, y) = (STEP_DEPTH * disparity + MIN_DEP);
+#endif
 	}
 }
 

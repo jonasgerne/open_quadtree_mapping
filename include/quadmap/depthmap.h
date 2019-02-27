@@ -44,6 +44,7 @@ public:
       int semi2dense_ratio,
       bool doBeliefPropagation,
       bool useQuadtree,
+      bool doFusion,
       float P1, float P2);
 
   bool add_frames(  const cv::Mat &img_curr,
@@ -85,6 +86,7 @@ private:
   size_t height_;
   float fx_, fy_, cx_, cy_;
   bool doBeliefPropagation;
+  bool doFusion;
 
   std::mutex ref_img_mutex_;
 

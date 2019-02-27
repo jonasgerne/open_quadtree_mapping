@@ -394,8 +394,11 @@ __global__ void depth_extract(int cost_downsampling,
 	            disparity = (float) min_id[0] - b_a / 2.0f;
             //disparity = (float)min_id[0] - b / (2.0f * a);
         }
-        //extracted_depth_devptr->atXY(x * cost_downsampling, y * cost_downsampling) = 1.0 / (STEP_INV_DEPTH * disparity + MIN_INV_DEPTH);
+#ifdef USE_INVERSE_DEPTH
+        extracted_depth_devptr->atXY(x * cost_downsampling, y * cost_downsampling) = 1.0 / (STEP_INV_DEPTH * disparity + MIN_INV_DEPTH);
+#else
         extracted_depth_devptr->atXY(x * cost_downsampling, y * cost_downsampling) = (STEP_DEPTH * disparity + MIN_DEP);
+#endif
     }
 }
 
