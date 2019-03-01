@@ -1,5 +1,5 @@
 // search range
-#define USE_INVERSE_DEPTH
+//#define USE_INVERSE_DEPTH
 
 #define MAX_DEP 50.0
 #define MIN_DEP 1.0

@@ -129,7 +129,7 @@ int main(int argc, char **argv)
   int semi2dense_ratio = 1; // 5
   int cost_downsampling = 1;
   bool doBeliefPropagation = true;
-  bool display_enabled = false;
+  bool display_enabled = true;
   float P1 = 0.003f;
   float P2 = 0.01f;
 
@@ -138,6 +138,9 @@ int main(int argc, char **argv)
   float k2 = 0.0f;
   float r1 = 0.0f;
   float r2 = 0.0f;
+
+  float minDepth = MIN_DEP;
+  float maxDepth = MAX_DEP;
 
   // Read intrinsics
   std::string intrinsicsPath = argv[1];
@@ -254,8 +257,6 @@ int main(int argc, char **argv)
           cv::minMaxIdx(depthmap_mat, &minVal, &maxVal);
           
           static cv::Mat depthNorm, depthColor;
-          float minDepth = 1.0f;
-          float maxDepth = 50.0f;
           cv::threshold(depthmap_mat, depthmap_mat, minDepth, minDepth, cv::THRESH_TOZERO);
           cv::threshold(depthmap_mat, depthmap_mat, maxDepth, maxDepth, cv::THRESH_TRUNC);
           cv::normalize(depthmap_mat, depthNorm, 0, 255, cv::NORM_MINMAX, CV_8U);

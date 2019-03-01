@@ -184,6 +184,7 @@ bool quadmap::SeedMatrix::add_frames(
   printf("till all semidense cost %f ms \n", ( std::clock() - start ) / (double) CLOCKS_PER_SEC * 1000); start = std::clock();
 
   if (frame_index % semi2dense_ratio != 0) {
+      //return false;
       download_output();
       return true;
   }
@@ -227,6 +228,7 @@ bool quadmap::SeedMatrix::need_add_reference()
 
 void quadmap::SeedMatrix::add_reference()
 {
+  printf("Adding reference\n");
   FrameElement newEle;
   newEle.frame_ptr = new DeviceImage<float>(width,height);
   newEle.transform = income_transform;
@@ -291,6 +293,7 @@ void quadmap::SeedMatrix::initial_keyframe()
 
 void quadmap::SeedMatrix::create_new_keyframe()
 {
+  printf("Adding keyframe\n");
   std::clock_t start = std::clock();
 
   bindTexture(income_image_tex, income_image);
