@@ -73,7 +73,7 @@ void bp_extract(int cost_downsampling, DeviceImage<PIXEL_COST> &image_cost_map, 
         cudaDeviceSynchronize();
     }
 
-    printf("CUDA Status %s\n", cudaGetErrorString(cudaGetLastError()));
+    //printf("CUDA Status %s\n", cudaGetErrorString(cudaGetLastError()));
 
     //loopy bp on each level
     //create the message four dirs
@@ -149,7 +149,7 @@ void bp_extract(int cost_downsampling, DeviceImage<PIXEL_COST> &image_cost_map, 
         }
     }
 
-    printf("CUDA Status %s\n", cudaGetErrorString(cudaGetLastError()));
+    //printf("CUDA Status %s\n", cudaGetErrorString(cudaGetLastError()));
 
     // Extract depth by finding min cost for sum of pixel cost + 4-neighbor costs
     dim3 depth_extract_block;
@@ -167,7 +167,7 @@ void bp_extract(int cost_downsampling, DeviceImage<PIXEL_COST> &image_cost_map, 
         depth.dev_ptr);
 
     cudaDeviceSynchronize();
-    printf("CUDA Status %s\n", cudaGetErrorString(cudaGetLastError()));
+    //printf("CUDA Status %s\n", cudaGetErrorString(cudaGetLastError()));
 
     for(int i = 1; i < hbp_level; i++)
     {

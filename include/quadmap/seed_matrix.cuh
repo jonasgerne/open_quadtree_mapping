@@ -49,6 +49,7 @@ public:
       bool doBeliefPropagation,
       bool useQuadtree,
       bool doFusion,
+      bool printTimings,
       float P1, float P2);
   ~SeedMatrix();
 
@@ -98,6 +99,7 @@ private:
   bool doBeliefPropagation;
   bool useQuadtree;
   bool doFusion;
+  bool printTimings;
 
   // BP Parameters
   float P1;

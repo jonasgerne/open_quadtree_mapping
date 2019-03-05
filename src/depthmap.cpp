@@ -29,10 +29,11 @@ quadmap::Depthmap::Depthmap(size_t width,
                         bool doBeliefPropagation,
                         bool useQuadtree,
                         bool doFusion,
+                        bool printTimings,
                         float P1, float P2)
   : width_(width)
   , height_(height)
-  , seeds_(width, height, cost_downsampling, quadmap::PinholeCamera(fx, fy, cx, cy), doBeliefPropagation, useQuadtree, doFusion, P1, P2)
+  , seeds_(width, height, cost_downsampling, quadmap::PinholeCamera(fx, fy, cx, cy), doBeliefPropagation, useQuadtree, doFusion, printTimings, P1, P2)
   , fx_(fx)
   , fy_(fy)
   , cx_(cx)

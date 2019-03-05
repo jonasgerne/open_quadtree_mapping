@@ -126,10 +126,11 @@ int main(int argc, char **argv)
   // pixel_cost.cuh:4 DEPTH_NUM
   // depth_fusion.cuh
 
-  int semi2dense_ratio = 1; // 5
+
   int cost_downsampling = 1;
   bool doBeliefPropagation = true;
-  bool display_enabled = true;
+  bool display_enabled = false;
+  bool printTimings = false;
   float P1 = 0.003f;
   float P2 = 0.01f;
 
@@ -148,6 +149,7 @@ int main(int argc, char **argv)
   std::string rgbPattern = argv[3];
   bool useQuadtree = atoi(argv[4]);
   bool doFusion = atoi(argv[5]);
+  int semi2dense_ratio = atoi(argv[6]); // 5
 
   std::ifstream intrinFile(intrinsicsPath);
   Eigen::Matrix<float, 3, 3, Eigen::RowMajor> intrinsics;
@@ -225,7 +227,7 @@ int main(int argc, char **argv)
       CV_32FC1,
       undist_map1, undist_map2);
 
-  std::shared_ptr<quadmap::Depthmap> depthmap_ = std::make_shared<quadmap::Depthmap>(width, height, cost_downsampling, fx, cx, fy, cy, undist_map1, undist_map2, semi2dense_ratio, doBeliefPropagation, useQuadtree, doFusion, P1, P2);
+  std::shared_ptr<quadmap::Depthmap> depthmap_ = std::make_shared<quadmap::Depthmap>(width, height, cost_downsampling, fx, cx, fy, cy, undist_map1, undist_map2, semi2dense_ratio, doBeliefPropagation, useQuadtree, doFusion, printTimings, P1, P2);
 
   // Run
   for (int idx = 0; idx < poses.size(); idx++)
@@ -239,8 +241,8 @@ int main(int argc, char **argv)
       Eigen::Vector3f t = poses[idx].block<3, 1>(0, 3);
       quadmap::SE3<float> T_world_curr(R.data(), t.data());
 
-      std::cout << "T_world_curr" << std::endl << T_world_curr << std::endl;
-      std::cout << "T_world_curr inv" << std::endl << T_world_curr.inv() << std::endl;
+      //std::cout << "T_world_curr" << std::endl << T_world_curr << std::endl;
+      //std::cout << "T_world_curr inv" << std::endl << T_world_curr.inv() << std::endl;
 
       bool has_result;
       has_result = depthmap_->add_frames(img_8uC1, T_world_curr.inv());

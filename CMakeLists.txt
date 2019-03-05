@@ -61,7 +61,7 @@ list(APPEND LINK_LIBS
 include_directories(${catkin_INCLUDE_DIRS})
 list(APPEND LINK_LIBS ${catkin_LIBRARIES})
 
-add_library(open_quadtree_mapping_lib STATIC
+add_library(open_quadtree_mapping_lib_depth STATIC
     src/check_cuda_device.cu
     src/seed_matrix.cu
     # src/bpextract.cu
@@ -74,19 +74,36 @@ add_library(open_quadtree_mapping_lib STATIC
     src/depthmap.cpp
 )
 
-add_executable(open_quadtree_mapping_node
-    src/depthmap_node.cpp
-    src/publisher.cpp
-    src/main_ros.cpp
-)
-target_link_libraries(open_quadtree_mapping_node open_quadtree_mapping_lib
-${catkin_LIBRARIES} ${OpenCV_LIBS} ${Boost_LIBRARIES})
+add_library(open_quadtree_mapping_lib_inverse STATIC
+        src/check_cuda_device.cu
+        src/seed_matrix.cu
+        # src/bpextract.cu
+        # src/depth_extract.cu
+        # src/depth_fusion.cu
+        # src/depth_upsample.cu
+        # src/lsd_semidense.cu
+        # src/quadtree.cu
+        # src/seed_init.cu
+        src/depthmap.cpp
+        )
+target_compile_definitions(open_quadtree_mapping_lib_inverse PUBLIC "-DUSE_INVERSE_DEPTH")
 
-add_executable(open_quadtree_mapping_standalone
-    src/main_standalone.cpp
-)
-target_link_libraries(open_quadtree_mapping_standalone open_quadtree_mapping_lib
-${catkin_LIBRARIES} ${OpenCV_LIBS} ${Boost_LIBRARIES})
+if(WITH_ROS)
+  add_executable(open_quadtree_mapping_node
+      src/depthmap_node.cpp
+      src/publisher.cpp
+      src/main_ros.cpp
+  )
+  target_link_libraries(open_quadtree_mapping_node open_quadtree_mapping_lib_inverse
+  ${catkin_LIBRARIES} ${OpenCV_LIBS} ${Boost_LIBRARIES})
+endif()
+
+add_executable(open_quadtree_mapping_standalone_depth src/main_standalone.cpp)
+target_link_libraries(open_quadtree_mapping_standalone_depth open_quadtree_mapping_lib_depth ${catkin_LIBRARIES} ${OpenCV_LIBS} ${Boost_LIBRARIES})
+
+add_executable(open_quadtree_mapping_standalone_inverse src/main_standalone.cpp)
+target_link_libraries(open_quadtree_mapping_standalone_inverse open_quadtree_mapping_lib_inverse ${catkin_LIBRARIES} ${OpenCV_LIBS} ${Boost_LIBRARIES})
+target_compile_definitions(open_quadtree_mapping_standalone_inverse PRIVATE "-DUSE_INVERSE_DEPTH")
 
 # Python module
 include_directories( ${EIGEN3_INCLUDE_DIRS} )
@@ -96,4 +113,4 @@ find_package(pybind11)
 include_directories( ${pybind11_INCLUDE_DIRS} )
 link_libraries( ${pybind11_LIBRARIES} )
 pybind11_add_module(pyQuadtreeMapping src/python_wrapper.cpp)
-TARGET_LINK_LIBRARIES(pyQuadtreeMapping PRIVATE open_quadtree_mapping_lib ${OpenCV_LIBS} ${Boost_LIBRARIES})
+TARGET_LINK_LIBRARIES(pyQuadtreeMapping PRIVATE open_quadtree_mapping_lib_depth ${OpenCV_LIBS} ${Boost_LIBRARIES})

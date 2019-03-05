@@ -45,6 +45,7 @@ public:
       bool doBeliefPropagation,
       bool useQuadtree,
       bool doFusion,
+      bool printTimings,
       float P1, float P2);
 
   bool add_frames(  const cv::Mat &img_curr,
@@ -87,6 +88,7 @@ private:
   float fx_, fy_, cx_, cy_;
   bool doBeliefPropagation;
   bool doFusion;
+  bool printTimings;
 
   std::mutex ref_img_mutex_;
 
