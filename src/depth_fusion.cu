@@ -48,15 +48,17 @@ __global__ void fuse_transform(
   if ( is_badpoint(pixel_info) )
     return;
 
+  // Transform point from last to current frame
   float3 projected = last_to_cur * (dir * pixel_info.z);
   float new_depth = length(projected);
   if(new_depth <= 0.5)
     return;
 
   pixel_info.z = new_depth;
-  pixel_info.w += new_depth * 0.01;
+  pixel_info.w += new_depth * 0.01; //??
   // pixel_info.y *= 1.001;
 
+  // Project onto current image
   const float2 project_point = camera.world2cam(projected);
   const int projecte_x = project_point.x + 0.5;
   const int projecte_y = project_point.y + 0.5;
@@ -71,6 +73,7 @@ __global__ void fuse_transform(
   // if( fabs(origin_color-trans_color) > 30.0 )
   //   return;
 
+  // Depth map culling over multiple threads
   int *check_ptr = &(transform_table_devptr->atXY(projecte_x, projecte_y));
   int expect_i = 0;
   int actual_i;
@@ -139,6 +142,7 @@ __global__ void fuse_currentmap(
   if(x >= width || y >= height)
     return;
 
+  // Current measurement and uncertainty
   float depth_estimate = depth_output_devptr->atXY(x,y);
   // float uncertianity = depth_estimate * depth_estimate * 0.01;
   // float uncertianity = 1.0;
@@ -149,29 +153,34 @@ __global__ void fuse_currentmap(
 
   //printf("Uncertainty %f\n", uncertianity);
 
+  // Get previous estimate
   int pre_position = transform_table_devptr->atXY(x,y);
   float4 pixel_info;
   if(pre_position > 0)
     pixel_info = former_depth_devptr->atXY(pre_position%width, pre_position/width);
   else
-  { 
+  {
+    // Assume initial estimate with current depth
     pixel_info = make_float4(initial_a, initial_b, depth_estimate, initial_variance);
   }
 
-//  if( (depth_estimate - pixel_info.z)*(depth_estimate - pixel_info.z) > uncertianity + pixel_info.w)
-//     pixel_info = make_float4(initial_a, initial_b, depth_estimate, initial_variance);
+  // Reset previous estimate if depth difference is bigger than sum of variances
+  if( (depth_estimate - pixel_info.z)*(depth_estimate - pixel_info.z) > uncertianity + pixel_info.w)
+     pixel_info = make_float4(initial_a, initial_b, depth_estimate, initial_variance);
 
-  //orieigin info
+  // Previous estimate
   float a = pixel_info.x;
   float b = pixel_info.y;
   float miu = pixel_info.z;
   float sigma_sq = pixel_info.w;
 
+  // Update based on variance
   float new_sq = uncertianity * sigma_sq / (uncertianity + sigma_sq);
   float new_miu = (depth_estimate * sigma_sq + miu * uncertianity) / (uncertianity + sigma_sq);
   float c1 = (a / (a+b)) * normpdf(depth_estimate, miu, uncertianity + sigma_sq);
   float c2 = (b / (a+b)) * 1 / 50.0f;
 
+  // Update based on outlier ratio
   const float norm_const = c1 + c2;
   c1 = c1 / norm_const;
   c2 = c2 / norm_const;
@@ -195,6 +204,7 @@ __global__ void fuse_currentmap(
 //  if (pixel_info.x /(pixel_info.x + pixel_info.y) > 0.6) // inlier ratio: a / (a + b)
 //    printf("%f / (%f + %f) = %f > 0.6\n", pixel_info.x, pixel_info.x, pixel_info.y, pixel_info.x /(pixel_info.x + pixel_info.y));
 
+  // Check previous inlier ratio
   if(is_goodpoint(pixel_info))
     depth_output_devptr->atXY(x,y) = mu_prime;
   else

@@ -47,7 +47,10 @@ namespace py = pybind11;
 
 std::shared_ptr<quadmap::Depthmap> depthmap_;
 
-bool initialize(Eigen::Matrix<float, 3, 3, Eigen::RowMajor> K, int width, int height, int cost_downsampling, bool doBeliefPropagation, bool useQuadtree, bool doFusion, bool printTimings, float P1, float P2) {
+bool initialize(Eigen::Matrix<float, 3, 3, Eigen::RowMajor> K, int width, int height, int cost_downsampling,
+        bool doBeliefPropagation, bool useQuadtree, bool doFusion, bool printTimings, float P1, float P2,
+        float new_keyframe_max_angle, float new_keyframe_max_distance, float new_reference_max_angle,
+        float new_reference_max_distance) {
 
     int semi2dense_ratio = 5;
 
@@ -76,7 +79,9 @@ bool initialize(Eigen::Matrix<float, 3, 3, Eigen::RowMajor> K, int width, int he
         CV_32FC1,
         undist_map1, undist_map2);
 
-    depthmap_ = std::make_shared<quadmap::Depthmap>(width, height, cost_downsampling, fx, cx, fy, cy, undist_map1, undist_map2, semi2dense_ratio, doBeliefPropagation, useQuadtree, doFusion, printTimings, P1, P2);
+    depthmap_ = std::make_shared<quadmap::Depthmap>(width, height, cost_downsampling, fx, cx, fy, cy, undist_map1,
+            undist_map2, semi2dense_ratio, doBeliefPropagation, useQuadtree, doFusion, printTimings, P1, P2,
+            new_keyframe_max_angle, new_keyframe_max_distance, new_reference_max_angle, new_reference_max_distance);
 
     return true;
 }

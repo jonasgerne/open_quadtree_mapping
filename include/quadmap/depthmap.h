@@ -46,7 +46,11 @@ public:
       bool useQuadtree,
       bool doFusion,
       bool printTimings,
-      float P1, float P2);
+      float P1, float P2,
+      float new_keyframe_max_angle,
+      float new_keyframe_max_distance,
+      float new_reference_max_angle,
+      float new_reference_max_distance);
 
   bool add_frames(  const cv::Mat &img_curr,
                     const SE3<float> &T_curr_world);

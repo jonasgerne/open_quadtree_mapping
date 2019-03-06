@@ -22,10 +22,7 @@
 #include "depth_upsample.cu"
 #include "depth_fusion.cu"
 
-#define NEW_KEYFRAME_MAX_ANGLE 0.86
-#define NEW_KEYFRAME_MAX_DISTANCE 0.5
-#define NEW_REFERENCE_MAX_ANGLE 0.95
-#define NEW_REFERENCE_MAX_DISTANCE 0.03
+//#define DEBUG_PRINT
 
 quadmap::SeedMatrix::SeedMatrix(
     const size_t &_width,
@@ -36,7 +33,11 @@ quadmap::SeedMatrix::SeedMatrix(
     bool useQuadtree,
     bool doFusion,
     bool printTimings,
-    float P1, float P2)
+    float P1, float P2,
+    float new_keyframe_max_angle,
+    float new_keyframe_max_distance,
+    float new_reference_max_angle,
+    float new_reference_max_distance)
   : width(_width)
   , height(_height)
   , cost_downsampling(_cost_downsampling)
@@ -62,6 +63,10 @@ quadmap::SeedMatrix::SeedMatrix(
   , printTimings(printTimings)
   , P1(P1)
   , P2(P2)
+  , new_keyframe_max_angle(new_keyframe_max_angle)
+  , new_keyframe_max_distance(new_keyframe_max_distance)
+  , new_reference_max_angle(new_reference_max_angle)
+  , new_reference_max_distance(new_reference_max_distance)
   , frame_index(0)
 {
   cv_output.create(height, width, CV_32FC1);
@@ -106,7 +111,9 @@ void quadmap::SeedMatrix::set_remap(cv::Mat _remap_1, cv::Mat _remap_2)
 {
   remap_1 = _remap_1;
   remap_2 = _remap_2;
+#ifdef DEBUG_PRINT
   printf("has success set cuda remap.\n");
+#endif
 }
 bool quadmap::SeedMatrix::input_raw(cv::Mat raw_mat, const SE3<float> T_curr_world)
 {
@@ -116,7 +123,9 @@ bool quadmap::SeedMatrix::input_raw(cv::Mat raw_mat, const SE3<float> T_curr_wor
   income_undistort = undistorted_image;
   //undistorted_image.convertTo(input_float, CV_32F, 1.0f/255.0f);
   undistorted_image.convertTo(input_float, CV_32F);
+#ifdef DEBUG_PRINT
   printf("cuda prepare the image cost %f ms \n", ( std::clock() - start ) / (double) CLOCKS_PER_SEC * 1000);
+#endif
   return add_frames(input_float, T_curr_world);
 }
 void quadmap::SeedMatrix::add_income_image(const cv::Mat &input_image, const SE3<float> T_world)
@@ -159,8 +168,12 @@ bool quadmap::SeedMatrix::add_frames(
   semidense_on_income.zero();
   
   //add to the list
+  // Compute gradient
   add_income_image(input_image, T_curr_world);
+
+#ifdef DEBUG_PRINT
   printf("till add image cost %f ms \n", ( std::clock() - start ) / (double) CLOCKS_PER_SEC * 1000); start = std::clock();
+#endif
 
   //for semi-dense update and project
   if(!initialized)
@@ -173,6 +186,7 @@ bool quadmap::SeedMatrix::add_frames(
   }
 
   // Epipolar depth search and update
+  // Project depth from keyframe to frame
   update_keyframe();
 
   if(need_switchkeyframe())
@@ -181,12 +195,18 @@ bool quadmap::SeedMatrix::add_frames(
     // boost::thread t(&quadmap::SeedMatrix::create_new_keyframe_async,this);
     // t.detach();
 
-    // gpu function
+    // Propagate depth from last keyframe to new keyframe
+    // Initialize LSD seeds
+    // Do regularization and hole filling
     create_new_keyframe();
     set_income_as_keyframe();
   }
-  printf("till all semidense cost %f ms \n", ( std::clock() - start ) / (double) CLOCKS_PER_SEC * 1000); start = std::clock();
 
+#ifdef DEBUG_PRINT
+  printf("till all semidense cost %f ms \n", ( std::clock() - start ) / (double) CLOCKS_PER_SEC * 1000); start = std::clock();
+#endif
+
+  // If not a dense frame, return update with semidense depth
   if (frame_index % semi2dense_ratio != 0) {
       //return false;
       download_output();
@@ -197,18 +217,26 @@ bool quadmap::SeedMatrix::add_frames(
   bool has_depth_output = false;
   if(framelist_host.size() > 1)
   {
+    // Compute depth from multi-view-stereo using quadtree and belief propagation
     extract_depth();
     has_depth_output = true;
   }
-  printf("till all full dense cost %f ms \n", ( std::clock() - start ) / (double) CLOCKS_PER_SEC * 1000); start = std::clock();
 
-  //add the current frame into framelist
+#ifdef DEBUG_PRINT
+  printf("till all full dense cost %f ms \n", ( std::clock() - start ) / (double) CLOCKS_PER_SEC * 1000); start = std::clock();
+#endif
+
+  // If min baseline and angle add the current frame into framelist for mvs
   if(need_add_reference())
     add_reference();
+
+#ifdef DEBUG_PRINT
   printf("till all end cost %f ms \n", ( std::clock() - start ) / (double) CLOCKS_PER_SEC * 1000); start = std::clock();
+#endif
 
   if(has_depth_output)
   {
+    // Fuse
     if(doFusion)
       fuse_output_depth();
     download_output();
@@ -227,7 +255,7 @@ bool quadmap::SeedMatrix::need_add_reference()
   float3 income_z = make_float3(income_pose.data(0,2),income_pose.data(1,2),income_pose.data(2,2));
   float z_cos = dot(last_z, income_z);
   float base_line = length(lastframe_pose.getTranslation()-income_pose.getTranslation());
-  return (z_cos < NEW_REFERENCE_MAX_ANGLE || base_line > NEW_REFERENCE_MAX_DISTANCE);
+  return (z_cos < new_reference_max_angle || base_line > new_reference_max_distance);
 }
 
 void quadmap::SeedMatrix::add_reference()
@@ -254,7 +282,7 @@ bool quadmap::SeedMatrix::need_switchkeyframe()
   float3 income_z = make_float3(income_pose.data(0,2),income_pose.data(1,2),income_pose.data(2,2));
   float z_cos = dot(keyframe_z, income_z);
   float base_line = length(keyframe_pose.getTranslation()-income_pose.getTranslation());
-  return (z_cos < NEW_KEYFRAME_MAX_ANGLE || base_line > NEW_KEYFRAME_MAX_DISTANCE);
+  return (z_cos < new_keyframe_max_angle || base_line > new_keyframe_max_distance);
 }
 
 void quadmap::SeedMatrix::initial_keyframe()
@@ -291,8 +319,9 @@ void quadmap::SeedMatrix::initial_keyframe()
   cudaUnbindTexture(income_gradient_tex);
   cudaUnbindTexture(keyframe_image_tex);
   cudaUnbindTexture(keyframe_gradient_tex);
-
+#ifdef DEBUG_PRINT
   printf("initialize keyframe cost %f ms \n", ( std::clock() - start ) / (double) CLOCKS_PER_SEC * 1000);
+#endif
 }
 
 void quadmap::SeedMatrix::create_new_keyframe()
@@ -320,7 +349,7 @@ void quadmap::SeedMatrix::create_new_keyframe()
 
   new_keyframe.zero();
   transform_table.zero();
-  //first propagte the keyframe to income frame
+  //first propagte the keyframe to new keyframe
   propogate_keyframe_kernel<<<image_grid, image_block>>>(
     keyframe_semidense.dev_ptr,
     camera_para,
@@ -329,19 +358,26 @@ void quadmap::SeedMatrix::create_new_keyframe()
     new_info.dev_ptr);
   cudaDeviceSynchronize();
 
-  //write into the newframe
+  // LSD SLAM initialization
+  // Intialize mean,var for all pixels with min gradient
   initialize_keyframe_kernel<<<image_grid, image_block>>>(
     new_keyframe.dev_ptr,
     transform_table.dev_ptr,
     new_info.dev_ptr);
   cudaDeviceSynchronize();
 
+  // Regularization from LSD SLAM
+  // Check if pixel has min num support pixels in 5x5 neighborhood
+  // Smooth over valid neighbors (within depth variance range)
   regulizeDepth_kernel<<<image_grid, image_block>>>(new_keyframe.dev_ptr, true);
   cudaDeviceSynchronize();
 
+  // Hole filling from LSD SLAM
+  // If enough valid measurements in 5x5 neighboorhood fill invalid pixel with variance weighted average
   regulizeDepth_FillHoles_kernel<<<image_grid, image_block>>>(new_keyframe.dev_ptr);
   cudaDeviceSynchronize();
 
+  // Another round of regularization
   regulizeDepth_kernel<<<image_grid, image_block>>>(new_keyframe.dev_ptr, false);
   cudaDeviceSynchronize();
 
@@ -368,7 +404,9 @@ void quadmap::SeedMatrix::create_new_keyframe_async()
   SE3<float> old_to_new = income_transform * keyframe_transform.inv();
   cudaStreamSynchronize(swict_semidense_stream1);
   cudaStreamSynchronize(swict_semidense_stream2);
-  printf("create_new_keyframe_async: download all information cost %f ms \n", ( std::clock() - start ) / (double) CLOCKS_PER_SEC * 1000);start = std::clock();  
+#ifdef DEBUG_PRINT
+  printf("create_new_keyframe_async: download all information cost %f ms \n", ( std::clock() - start ) / (double) CLOCKS_PER_SEC * 1000);start = std::clock();
+#endif
   for(int height_i = 0; height_i < height; height_i ++)
   {
     for(int width_i = 0; width_i < width; width_i ++)
@@ -428,10 +466,13 @@ void quadmap::SeedMatrix::create_new_keyframe_async()
       }
     }
   }
-  printf("create_new_keyframe_async: cpu fuse cost %f ms \n", ( std::clock() - start ) / (double) CLOCKS_PER_SEC * 1000);start = std::clock();  
+#ifdef DEBUG_PRINT
+  printf("create_new_keyframe_async: cpu fuse cost %f ms \n", ( std::clock() - start ) / (double) CLOCKS_PER_SEC * 1000);start = std::clock();
+#endif
   keyframe_semidense.setDevData(semidense_new_hostptr, swict_semidense_stream1);
+#ifdef DEBUG_PRINT
   printf("create_new_keyframe_async: upload semidense cost %f ms \n", ( std::clock() - start ) / (double) CLOCKS_PER_SEC * 1000);start = std::clock();
-
+#endif
 
   dim3 image_block;
   dim3 image_grid;
@@ -445,7 +486,9 @@ void quadmap::SeedMatrix::create_new_keyframe_async()
   cudaStreamSynchronize(swict_semidense_stream1);
 
   set_income_as_keyframe();
+#ifdef DEBUG_PRINT
   printf("create_new_keyframe_async: gpu smooth cost %f ms \n", ( std::clock() - start ) / (double) CLOCKS_PER_SEC * 1000);start = std::clock();
+#endif
 }
 
 void quadmap::SeedMatrix::update_keyframe()
@@ -519,7 +562,9 @@ void quadmap::SeedMatrix::update_keyframe()
   cudaUnbindTexture(income_gradient_tex);
   cudaUnbindTexture(keyframe_image_tex);
   cudaUnbindTexture(keyframe_gradient_tex);
-  // printf("update keyframe cost %f ms \n", ( std::clock() - start ) / (double) CLOCKS_PER_SEC * 1000);
+#ifdef DEBUG_PRINT
+  printf("update keyframe cost %f ms \n", ( std::clock() - start ) / (double) CLOCKS_PER_SEC * 1000);
+#endif
 }
 
 void quadmap::SeedMatrix::extract_depth()
@@ -530,7 +575,9 @@ void quadmap::SeedMatrix::extract_depth()
   bindTexture(income_gradient_tex, income_gradient);
 
   //prepare the reference data
+#ifdef DEBUG_PRINT
   printf("  we have %d of %d frames.\n", framelist_host.size(), KEYFRAME_NUM);
+#endif
   for(int i = 0; i < framelist_host.size(); i++)
   {
     FrameElement this_ele = framelist_host[i];
@@ -567,7 +614,6 @@ void quadmap::SeedMatrix::extract_depth()
 
   bindTexture(quadtree_tex, quadtree_index, cudaFilterModePoint);
 
-  // TODO: Add parameter
   DeviceImage<PIXEL_COST> image_cost(width / cost_downsampling, height/ cost_downsampling);
   DeviceImage<int> add_num(width/ cost_downsampling, height/ cost_downsampling);
   image_cost.zero();
@@ -583,7 +629,7 @@ void quadmap::SeedMatrix::extract_depth()
   // cudaDeviceSynchronize();
   // printf("  prior to cost cost %f ms \n", ( std::clock() - depth_extract_start ) / (double) CLOCKS_PER_SEC * 1000);depth_extract_start = std::clock();
 
-  /*add cost from image list*/
+  // Multi View Stereo Cost Volume computation
   clock_t cost_start = std::clock();
   dim3 cost_block;
   dim3 cost_grid;
@@ -612,6 +658,8 @@ void quadmap::SeedMatrix::extract_depth()
   normalize_grid.y = height / cost_downsampling;
   normalize_the_cost<<<normalize_grid,normalize_block>>>(image_cost.dev_ptr, add_num.dev_ptr);
   cudaDeviceSynchronize();
+
+  // Regularize and extract depth
   //printf("CUDA Status %s\n", cudaGetErrorString(cudaGetLastError()));
   if(printTimings)
     printf("  cost normalize cost %f ms \n", ( std::clock() - depth_extract_start ) / (double) CLOCKS_PER_SEC * 1000);depth_extract_start = std::clock();
@@ -683,15 +731,16 @@ void quadmap::SeedMatrix::fuse_output_depth()
   // high_gradient_filter<<<image_grid, image_block>>>(filtered_depth.dev_ptr, depth_output.dev_ptr);
   // cudaDeviceSynchronize();
 
+  // Transform depth from last depth map to new frame
   SE3<float> last_to_income = income_transform * this_fuse_worldpose.inv();
   fuse_transform<<<image_grid, image_block>>>(depth_fuse_seeds.dev_ptr, transform_table.dev_ptr, last_to_income, camera);
   // cudaDeviceSynchronize();
 
-  //fill holes
+  // Fill holes (LSD SLAM)
   hole_filling<<<image_grid, image_block>>>(transform_table.dev_ptr);
   // cudaDeviceSynchronize();
 
-  //update the map
+  // Fuse
   fuse_currentmap<<<image_grid, image_block>>>(
   transform_table.dev_ptr,
   depth_output.dev_ptr,
@@ -699,7 +748,7 @@ void quadmap::SeedMatrix::fuse_output_depth()
   new_seed.dev_ptr);
   // cudaDeviceSynchronize();
 
-  //update
+  // assign
   depth_fuse_seeds = new_seed;
   this_fuse_worldpose = income_transform;
 
@@ -714,7 +763,9 @@ void quadmap::SeedMatrix::download_output()
   depth_output.getDevData(reinterpret_cast<float*>(cv_output.data));
   debug_image.getDevData(reinterpret_cast<float*>(cv_debug.data));
   epipolar_image.getDevData(reinterpret_cast<float4*>(cv_epipolar.data));
+#ifdef DEBUG_PRINT
   printf("download depth map cost %f ms \n", ( std::clock() - start ) / (double) CLOCKS_PER_SEC * 1000);start = std::clock();
+#endif
 }
 
 void quadmap::SeedMatrix::get_result(cv::Mat &depth, cv::Mat &debug, cv::Mat &reference, cv::Mat &epipolar, cv::Mat &keyframe)

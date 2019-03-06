@@ -131,8 +131,13 @@ int main(int argc, char **argv)
   bool doBeliefPropagation = true;
   bool display_enabled = false;
   bool printTimings = false;
-  float P1 = 0.003f;
+  float P1 = 0.003f; // 0.003f
   float P2 = 0.01f;
+
+  float new_keyframe_max_angle = 0.86f;
+  float new_keyframe_max_distance =  0.5f;
+  float new_reference_max_angle = 0.95f;
+  float new_reference_max_distance = 0.03;
 
   // Distortion coefficients
   float k1 = 0.0f;
@@ -227,7 +232,9 @@ int main(int argc, char **argv)
       CV_32FC1,
       undist_map1, undist_map2);
 
-  std::shared_ptr<quadmap::Depthmap> depthmap_ = std::make_shared<quadmap::Depthmap>(width, height, cost_downsampling, fx, cx, fy, cy, undist_map1, undist_map2, semi2dense_ratio, doBeliefPropagation, useQuadtree, doFusion, printTimings, P1, P2);
+  std::shared_ptr<quadmap::Depthmap> depthmap_ = std::make_shared<quadmap::Depthmap>(width, height, cost_downsampling,
+          fx, cx, fy, cy, undist_map1, undist_map2, semi2dense_ratio, doBeliefPropagation, useQuadtree, doFusion,
+          printTimings, P1, P2, new_keyframe_max_angle, new_keyframe_max_distance, new_reference_max_angle, new_reference_max_distance);
 
   // Run
   for (int idx = 0; idx < poses.size(); idx++)

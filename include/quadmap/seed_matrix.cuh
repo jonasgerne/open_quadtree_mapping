@@ -50,7 +50,11 @@ public:
       bool useQuadtree,
       bool doFusion,
       bool printTimings,
-      float P1, float P2);
+      float P1, float P2,
+      float new_keyframe_max_angle,
+      float new_keyframe_max_distance,
+      float new_reference_max_angle,
+      float new_reference_max_distance);
   ~SeedMatrix();
 
   void set_remap(cv::Mat _remap_1, cv::Mat _remap_2);
@@ -104,6 +108,12 @@ private:
   // BP Parameters
   float P1;
   float P2;
+
+  // Stereo Parameters
+  float new_keyframe_max_angle;
+  float new_keyframe_max_distance;
+  float new_reference_max_angle;
+  float new_reference_max_distance;
 
   MatchParameter match_parameter;
 

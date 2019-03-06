@@ -30,10 +30,15 @@ quadmap::Depthmap::Depthmap(size_t width,
                         bool useQuadtree,
                         bool doFusion,
                         bool printTimings,
-                        float P1, float P2)
+                        float P1, float P2,
+                        float new_keyframe_max_angle,
+                        float new_keyframe_max_distance,
+                        float new_reference_max_angle,
+                        float new_reference_max_distance)
   : width_(width)
   , height_(height)
-  , seeds_(width, height, cost_downsampling, quadmap::PinholeCamera(fx, fy, cx, cy), doBeliefPropagation, useQuadtree, doFusion, printTimings, P1, P2)
+  , seeds_(width, height, cost_downsampling, quadmap::PinholeCamera(fx, fy, cx, cy), doBeliefPropagation, useQuadtree,
+          doFusion, printTimings, P1, P2, new_keyframe_max_angle, new_keyframe_max_distance, new_reference_max_angle, new_reference_max_distance)
   , fx_(fx)
   , fy_(fy)
   , cx_(cx)

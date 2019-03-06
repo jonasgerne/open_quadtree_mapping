@@ -260,10 +260,12 @@ __global__ void regulizeDepth_kernel(DeviceImage<DepthSeed> *keyframe_devptr, bo
 	if (x >= width - 3 || y >= height - 3 || x <= 2 || y <= 2)
 		return;
 
+	// Return if not valid
 	DepthSeed depthseed = keyframe_devptr->atXY(x,y);
 	if(!depthseed.is_vaild())
 		return;
 
+	// Go over neighbors 5x5
 	float sum_idepth = 0.0;
 	float sum_ivariance = 0.0;
 	float sum_vaild = 0.0;
@@ -277,6 +279,7 @@ __global__ void regulizeDepth_kernel(DeviceImage<DepthSeed> *keyframe_devptr, bo
 			if( ! other_seed.is_vaild() )
 				continue;
 
+			// If depth difference is bigger than sum of variances skip neighbor
 			float diff_idepth = depthseed.idepth() - other_seed.idepth();
 			if(diff_idepth * diff_idepth > depthseed.variance() + other_seed.variance())
 			{
@@ -288,20 +291,26 @@ __global__ void regulizeDepth_kernel(DeviceImage<DepthSeed> *keyframe_devptr, bo
 			sum_vaild += other_seed.vaild_counter();
 			not_occlusion++;
 
+			// The further away the pixel the bigger the weight
 			float spatial_weight = REG_DIST_VAR * (i*i+j*j);
 			float ivariance = 1.0f / (other_seed.variance() + spatial_weight);
+			// Variance weighted sum
 			sum_idepth += ivariance * other_seed.idepth();
 			sum_ivariance += ivariance;
 		}
 	}
 
+	// Need min num of support neighbors with similar depth
 	if(sum_vaild < VAL_SUM_MIN_FOR_KEEP)
 		depthseed.set_invaild();
+	// If more neighbors have different depth than similar depth set invalid
 	if(removeOcclusions && occlusion > not_occlusion)
 		depthseed.set_invaild();
 
+	// Normalize weighted sums
 	float smooth_idepth = sum_idepth / sum_ivariance;
 	float smooth_variance = 1.0f / sum_ivariance;
+	// Update with smoothed value
 	depthseed.set_smooth(smooth_idepth, smooth_variance);
 	keyframe_devptr->atXY(x,y) = depthseed;
 }
@@ -315,16 +324,19 @@ __global__ void regulizeDepth_FillHoles_kernel(DeviceImage<DepthSeed> *keyframe_
 	if (x >= width - 3 || y >= height - 3 || x <= 2 || y <= 2)
 		return;
 
+	// Skip if gradient smaller than threshold
 	float2 this_gradient = tex2D(income_gradient_tex, x + 0.5, y + 0.5);
 	float gradient_mag_2 = dot(this_gradient, this_gradient);
 
 	if (gradient_mag_2 < MIN_GRAIDIENT * MIN_GRAIDIENT)
 		return;
 
+	// Skip if valid
 	DepthSeed depthseed = keyframe_devptr->atXY(x,y);
 	if(depthseed.is_vaild())
 		return;
 
+	// Go over neighbors 5x5
 	float sum_idepth = 0.0;
 	float sum_ivariance = 0.0;
 	float sum_vaild = 0.0;
@@ -335,6 +347,7 @@ __global__ void regulizeDepth_FillHoles_kernel(DeviceImage<DepthSeed> *keyframe_
 			DepthSeed other_seed = keyframe_devptr->atXY(x+i,y+j);
 			if( other_seed.is_vaild() )
 			{
+				// If neighbor is valid, add to variance weighted sum
 				sum_vaild += other_seed.vaild_counter();
 				float weigth = 1.0f / other_seed.variance();
 				sum_idepth += other_seed.idepth() * weigth;
@@ -343,6 +356,7 @@ __global__ void regulizeDepth_FillHoles_kernel(DeviceImage<DepthSeed> *keyframe_
 		}
 	}
 
+	// Fill with weighted average, if min num of support neighbors is greater than threshold
 	bool create = (sum_vaild > VAL_SUM_MIN_FOR_UNBLACKLIST) || (depthseed.blacklist() >= MIN_BLACKLIST && sum_vaild > VAL_SUM_MIN_FOR_CREATE);
 	if(create)
 	{
