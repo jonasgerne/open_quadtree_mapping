@@ -32,12 +32,15 @@ quadmap::SeedMatrix::SeedMatrix(
     bool doBeliefPropagation,
     bool useQuadtree,
     bool doFusion,
+    bool doGlobalUpsampling,
     bool printTimings,
     float P1, float P2,
     float new_keyframe_max_angle,
     float new_keyframe_max_distance,
     float new_reference_max_angle,
-    float new_reference_max_distance)
+    float new_reference_max_distance,
+    float min_inlier_ratio_good,
+    float min_inlier_ratio_bad)
   : width(_width)
   , height(_height)
   , cost_downsampling(_cost_downsampling)
@@ -60,6 +63,7 @@ quadmap::SeedMatrix::SeedMatrix(
   , doBeliefPropagation(doBeliefPropagation)
   , useQuadtree(useQuadtree)
   , doFusion(doFusion)
+  , doGlobalUpsampling(doGlobalUpsampling)
   , printTimings(printTimings)
   , P1(P1)
   , P2(P2)
@@ -67,6 +71,8 @@ quadmap::SeedMatrix::SeedMatrix(
   , new_keyframe_max_distance(new_keyframe_max_distance)
   , new_reference_max_angle(new_reference_max_angle)
   , new_reference_max_distance(new_reference_max_distance)
+  , min_inlier_ratio_good(min_inlier_ratio_good)
+  , min_inlier_ratio_bad(min_inlier_ratio_bad)
   , frame_index(0)
 {
   cv_output.create(height, width, CV_32FC1);
@@ -594,7 +600,7 @@ void quadmap::SeedMatrix::extract_depth()
   // /*first, generate quad tree*/
   DeviceImage<int> quadtree_index(width,height);
   quadtree_index.zero();
-  
+
   if (useQuadtree) {
       dim3 quadtree_block;
       dim3 quadtree_grid;
@@ -664,16 +670,27 @@ void quadmap::SeedMatrix::extract_depth()
   if(printTimings)
     printf("  cost normalize cost %f ms \n", ( std::clock() - depth_extract_start ) / (double) CLOCKS_PER_SEC * 1000);depth_extract_start = std::clock();
 
+  dim3 upsample_block;
+  dim3 upsample_grid;
+  upsample_block.x = 32;
+  upsample_block.y = 32;
+  upsample_grid.x = (width + upsample_block.x - 1) / upsample_block.x;
+  upsample_grid.y = (height + upsample_block.y - 1) / upsample_block.y;
+  //upsample_naive << <upsample_grid, upsample_block >> > (debug_image.dev_ptr, depth_output.dev_ptr, cost_downsampling);
+
+  debug_image.zero();
+  depth_output.zero();
+
   if (!doBeliefPropagation) {
       // naive extract
-      naive_extract << <normalize_grid, normalize_block >> > (image_cost.dev_ptr, debug_image.dev_ptr);
+      naive_extract << <normalize_grid, normalize_block >> > (image_cost.dev_ptr, debug_image.dev_ptr, cost_downsampling);
       cudaDeviceSynchronize();
       //printf("CUDA Status %s\n", cudaGetErrorString(cudaGetLastError()));
       if(printTimings)
         printf("  naive extract cost %f ms \n", (std::clock() - depth_extract_start) / (double)CLOCKS_PER_SEC * 1000); depth_extract_start = std::clock();
 
-      // naive upsample
-      upsample_naive << <normalize_grid, normalize_block >> > (debug_image.dev_ptr, depth_output.dev_ptr);
+      // quadtree upsampling
+      upsample_naive << <upsample_grid, upsample_block >> > (debug_image.dev_ptr, depth_output.dev_ptr, cost_downsampling);
       cudaDeviceSynchronize();
       //printf("CUDA Status %s\n", cudaGetErrorString(cudaGetLastError()));
       if(printTimings)
@@ -689,21 +706,19 @@ void quadmap::SeedMatrix::extract_depth()
       if(printTimings)
         printf("  bp extract cost %f ms \n", (std::clock() - depth_extract_start) / (double)CLOCKS_PER_SEC * 1000); depth_extract_start = std::clock();
 
-      /*dim3 upsample_block;
-      dim3 upsample_grid;
-      upsample_block.x = 32;
-      upsample_block.y = 32;
-      upsample_grid.x = (width + upsample_block.x - 1) / upsample_block.x;
-      upsample_grid.y = (height + upsample_block.y - 1) / upsample_block.y;
-      upsample_naive << <upsample_grid, upsample_block >> > (debug_image.dev_ptr, depth_output.dev_ptr);*/
-      upsample_naive << <normalize_grid, normalize_block >> > (debug_image.dev_ptr, depth_output.dev_ptr);
-      //printf("  naive upsample cost %f ms \n", (std::clock() - depth_extract_start) / (double)CLOCKS_PER_SEC * 1000); depth_extract_start = std::clock();
 
       //clock_t upsample_start = std::clock();
-      //global_upsample(debug_image, depth_output);
-      //// local_upsample(debug_image, depth_output);
-      //printf("CUDA Status %s\n", cudaGetErrorString(cudaGetLastError()));
-      //printf("  global upsample cost %f ms \n", (std::clock() - depth_extract_start) / (double)CLOCKS_PER_SEC * 1000); depth_extract_start = std::clock();
+      if (!doGlobalUpsampling) {
+        upsample_naive << <upsample_grid, upsample_block >> > (debug_image.dev_ptr, depth_output.dev_ptr, cost_downsampling);
+        // local_upsample(debug_image, depth_output);
+        //printf("  naive upsample cost %f ms \n", (std::clock() - depth_extract_start) / (double)CLOCKS_PER_SEC * 1000); depth_extract_start = std::clock();
+      }
+      else {
+        global_upsample(debug_image, depth_output);
+
+        //printf("CUDA Status %s\n", cudaGetErrorString(cudaGetLastError()));
+        //printf("  global upsample cost %f ms \n", (std::clock() - depth_extract_start) / (double)CLOCKS_PER_SEC * 1000); depth_extract_start = std::clock();
+      }
   }
   cudaUnbindTexture(quadtree_tex);
   cudaUnbindTexture(income_image_tex);
@@ -733,7 +748,8 @@ void quadmap::SeedMatrix::fuse_output_depth()
 
   // Transform depth from last depth map to new frame
   SE3<float> last_to_income = income_transform * this_fuse_worldpose.inv();
-  fuse_transform<<<image_grid, image_block>>>(depth_fuse_seeds.dev_ptr, transform_table.dev_ptr, last_to_income, camera);
+  fuse_transform<<<image_grid, image_block>>>(depth_fuse_seeds.dev_ptr, transform_table.dev_ptr, last_to_income,
+          camera, min_inlier_ratio_bad);
   // cudaDeviceSynchronize();
 
   // Fill holes (LSD SLAM)
@@ -745,7 +761,8 @@ void quadmap::SeedMatrix::fuse_output_depth()
   transform_table.dev_ptr,
   depth_output.dev_ptr,
   depth_fuse_seeds.dev_ptr,
-  new_seed.dev_ptr);
+  new_seed.dev_ptr,
+  min_inlier_ratio_good);
   // cudaDeviceSynchronize();
 
   // assign

@@ -220,6 +220,19 @@ struct DeviceImage
       throw CudaException("Image: unable to zero.", err);
   }
 
+    __host__
+    void fill(ElementType value)
+    {
+      const cudaError err = cudaMemset2D(
+              data,
+              pitch,
+              value,
+              width*sizeof(ElementType),
+              height);
+      if(err != cudaSuccess)
+        throw CudaException("Image: unable to zero.", err);
+    }
+
   __host__
   DeviceImage<ElementType> & operator=(const DeviceImage<ElementType> &other_image)
   {

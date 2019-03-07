@@ -345,9 +345,11 @@ __global__ void depth_extract(int cost_downsampling,
     int width = data_devptr->width;
     int height = data_devptr->height;
     int depth_id = threadIdx.x;
-    int pixel_level = tex2D(quadtree_tex, x * 4, y * 4);
+
+    // If not on this level skip
+    int pixel_level = tex2D(quadtree_tex, x * cost_downsampling, y * cost_downsampling);
     int level_size = 1 << pixel_level;
-    if(x * 4 % level_size != 0 || y * 4 % level_size != 0)
+    if(x * cost_downsampling % level_size != 0 || y * cost_downsampling % level_size != 0)
         return;
 
     __shared__ float cost[DEPTH_NUM];

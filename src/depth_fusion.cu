@@ -29,7 +29,8 @@ __global__ void fuse_transform(
   DeviceImage<float4> *pre_seeds_devptr,
   DeviceImage<int> *transform_table_devptr,
   SE3<float> last_to_cur,
-  PinholeCamera camera)
+  PinholeCamera camera,
+  const float min_inlier_ratio_bad)
 {
   const int x = threadIdx.x + blockIdx.x * blockDim.x;
   const int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -45,7 +46,7 @@ __global__ void fuse_transform(
 
   float4 pixel_info = pre_seeds_devptr->atXY(x,y);
 
-  if ( is_badpoint(pixel_info) )
+  if ( is_badpoint(pixel_info, min_inlier_ratio_bad) )
     return;
 
   // Transform point from last to current frame
@@ -131,7 +132,8 @@ __global__ void fuse_currentmap(
   DeviceImage<int> *transform_table_devptr,
   DeviceImage<float> *depth_output_devptr,
   DeviceImage<float4> *former_depth_devptr,
-  DeviceImage<float4> *new_depth_devptr)
+  DeviceImage<float4> *new_depth_devptr,
+  const float min_inlier_ratio_good)
 {
   const int x = threadIdx.x + blockIdx.x * blockDim.x;
   const int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -205,7 +207,7 @@ __global__ void fuse_currentmap(
 //    printf("%f / (%f + %f) = %f > 0.6\n", pixel_info.x, pixel_info.x, pixel_info.y, pixel_info.x /(pixel_info.x + pixel_info.y));
 
   // Check previous inlier ratio
-  if(is_goodpoint(pixel_info))
+  if(is_goodpoint(pixel_info, min_inlier_ratio_good))
     depth_output_devptr->atXY(x,y) = mu_prime;
   else
     depth_output_devptr->atXY(x,y) = -1.0f;

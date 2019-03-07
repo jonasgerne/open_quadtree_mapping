@@ -45,12 +45,15 @@ public:
       bool doBeliefPropagation,
       bool useQuadtree,
       bool doFusion,
+      bool doGlobalUpsampling,
       bool printTimings,
       float P1, float P2,
       float new_keyframe_max_angle,
       float new_keyframe_max_distance,
       float new_reference_max_angle,
-      float new_reference_max_distance);
+      float new_reference_max_distance,
+      float min_inlier_ratio_good,
+      float min_inlier_ratio_bad);
 
   bool add_frames(  const cv::Mat &img_curr,
                     const SE3<float> &T_curr_world);

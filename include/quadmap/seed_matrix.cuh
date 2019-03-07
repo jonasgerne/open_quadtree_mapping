@@ -49,12 +49,15 @@ public:
       bool doBeliefPropagation,
       bool useQuadtree,
       bool doFusion,
+      bool doGlobalUpsampling,
       bool printTimings,
       float P1, float P2,
       float new_keyframe_max_angle,
       float new_keyframe_max_distance,
       float new_reference_max_angle,
-      float new_reference_max_distance);
+      float new_reference_max_distance,
+      float min_inlier_ratio_good,
+      float min_inlier_ratio_bad);
   ~SeedMatrix();
 
   void set_remap(cv::Mat _remap_1, cv::Mat _remap_2);
@@ -103,6 +106,7 @@ private:
   bool doBeliefPropagation;
   bool useQuadtree;
   bool doFusion;
+  bool doGlobalUpsampling;
   bool printTimings;
 
   // BP Parameters
@@ -114,6 +118,8 @@ private:
   float new_keyframe_max_distance;
   float new_reference_max_angle;
   float new_reference_max_distance;
+  float min_inlier_ratio_good;
+  float min_inlier_ratio_bad;
 
   MatchParameter match_parameter;
 

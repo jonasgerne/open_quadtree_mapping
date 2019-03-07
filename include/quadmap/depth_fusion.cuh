@@ -14,23 +14,24 @@
 namespace quadmap
 {
 
+// TODO: Move to parameters
 #define initial_a 10 // 10
 #define initial_b 10 // 10
 #define initial_variance 2500 // 2500
-#define MIN_INLIER_RATIO_GOOD 0.6 // 0.6
-#define MIN_INLIER_RATIO_BAD 0.45
+//#define MIN_INLIER_RATIO_GOOD 0.6 // 0.6
+//#define MIN_INLIER_RATIO_BAD 0.45
 
 __device__ __forceinline__ float normpdf(const float &x, const float &mu, const float &sigma_sq)
 {
   return (expf(-(x-mu)*(x-mu) / (2.0f*sigma_sq))) * rsqrtf(2.0f*M_PI*sigma_sq);
 }
-__device__ __forceinline__ bool is_goodpoint(const float4 &point_info)
+__device__ __forceinline__ bool is_goodpoint(const float4 &point_info, const float min_inlier_ratio_good)
 {
-  return (point_info.x /(point_info.x + point_info.y) > MIN_INLIER_RATIO_GOOD);
+  return (point_info.x /(point_info.x + point_info.y) > min_inlier_ratio_good);
 }
-__device__ __forceinline__ bool is_badpoint(const float4 &point_info)
+__device__ __forceinline__ bool is_badpoint(const float4 &point_info, const float min_inlier_ratio_bad)
 {
-  return (point_info.x < 0.001) || (point_info.x /(point_info.x + point_info.y) < MIN_INLIER_RATIO_BAD);
+  return (point_info.x < 0.001) || (point_info.x /(point_info.x + point_info.y) < min_inlier_ratio_bad);
 }
 
 __global__ void high_gradient_filter
@@ -41,7 +42,8 @@ __global__ void fuse_transform(
     DeviceImage<float4> *pre_seeds_devptr,
     DeviceImage<int> *transform_table_devptr,
     SE3<float> last_to_cur,
-    PinholeCamera camera);
+    PinholeCamera camera,
+    const float min_inlier_ratio_bad);
 
 __global__ void hole_filling(DeviceImage<int> *transform_table_devptr);
 
@@ -49,5 +51,6 @@ __global__ void fuse_currentmap(
     DeviceImage<int> *transform_table_devptr,
     DeviceImage<float> *depth_output_devptr,
     DeviceImage<float4> *former_depth_devptr,
-    DeviceImage<float4> *new_depth_devptr);
+    DeviceImage<float4> *new_depth_devptr,
+    const float min_inlier_ratio_good);
 }//namespace

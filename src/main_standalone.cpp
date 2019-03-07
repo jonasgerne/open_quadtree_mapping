@@ -127,12 +127,11 @@ int main(int argc, char **argv)
   // depth_fusion.cuh
 
 
-  int cost_downsampling = 1;
   bool doBeliefPropagation = true;
   bool display_enabled = false;
   bool printTimings = false;
-  float P1 = 0.003f; // 0.003f
-  float P2 = 0.01f;
+  float P1 = 0.003f; // 0.003 (original)
+  float P2 = 0.01f; // 0.01 (original)
 
   float new_keyframe_max_angle = 0.86f;
   float new_keyframe_max_distance =  0.5f;
@@ -154,7 +153,11 @@ int main(int argc, char **argv)
   std::string rgbPattern = argv[3];
   bool useQuadtree = atoi(argv[4]);
   bool doFusion = atoi(argv[5]);
-  int semi2dense_ratio = atoi(argv[6]); // 5
+  bool doGlobalUpsampling = atoi(argv[6]);
+  int semi2dense_ratio = atoi(argv[7]); // 5 (original)
+  int cost_downsampling = atoi(argv[8]); // 4 (original)
+  float min_inlier_ratio_good = atof(argv[9]); // 0.6 (original)
+  float min_inlier_ratio_bad = atof(argv[10]); // 0.45 (original)
 
   std::ifstream intrinFile(intrinsicsPath);
   Eigen::Matrix<float, 3, 3, Eigen::RowMajor> intrinsics;
@@ -234,7 +237,8 @@ int main(int argc, char **argv)
 
   std::shared_ptr<quadmap::Depthmap> depthmap_ = std::make_shared<quadmap::Depthmap>(width, height, cost_downsampling,
           fx, cx, fy, cy, undist_map1, undist_map2, semi2dense_ratio, doBeliefPropagation, useQuadtree, doFusion,
-          printTimings, P1, P2, new_keyframe_max_angle, new_keyframe_max_distance, new_reference_max_angle, new_reference_max_distance);
+          doGlobalUpsampling, printTimings, P1, P2, new_keyframe_max_angle, new_keyframe_max_distance, new_reference_max_angle,
+          new_reference_max_distance, min_inlier_ratio_good, min_inlier_ratio_bad);
 
   // Run
   for (int idx = 0; idx < poses.size(); idx++)

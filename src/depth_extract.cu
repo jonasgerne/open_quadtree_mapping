@@ -74,7 +74,7 @@ __global__ void prior_to_cost(
 // 	if(frame_id == 0)
 // 	{
 // 		cost[depth_id] = 0;
-// 		aggregate_num[depth_id] = 0;
+// 		aggregate_num[deptcost_downsamplingh_id] = 0;
 // 	}
 // 	const int my_frame_id = (float) this_age / 5.0 * (float) frame_id;
 // 	__syncthreads();
@@ -152,6 +152,7 @@ __global__ void image_to_cost(
 	if (x >= width -1 || y >= height - 1 || x <= 0 || y <= 0)
 		return;
 
+	// Skip if not selected by quadtree
     if (((x % my_quadsize) != 0) || ((y % my_quadsize) != 0))
         return;
 
@@ -264,7 +265,8 @@ __global__ void normalize_the_cost(
 
 __global__ void naive_extract(
 	DeviceImage<PIXEL_COST> *cost_devptr,
-	DeviceImage<float> *coarse_depth_devptr)
+	DeviceImage<float> *coarse_depth_devptr,
+    const float cost_downsampling)
 {
 	const int x = blockIdx.x;
 	const int y = blockIdx.y;
@@ -305,16 +307,17 @@ __global__ void naive_extract(
 			disparity = (float) min_id[0] - b / (2.0f * a);
 		}
 #ifdef USE_INVERSE_DEPTH
-		coarse_depth_devptr->atXY(x,y) = 1.0 / (STEP_INV_DEPTH * disparity + MIN_INV_DEPTH);
+		coarse_depth_devptr->atXY(x * cost_downsampling, y * cost_downsampling) = 1.0 / (STEP_INV_DEPTH * disparity + MIN_INV_DEPTH);
 #else
-        coarse_depth_devptr->atXY(x, y) = (STEP_DEPTH * disparity + MIN_DEP);
+        coarse_depth_devptr->atXY(x * cost_downsampling, y * cost_downsampling) = (STEP_DEPTH * disparity + MIN_DEP);
 #endif
 	}
 }
 
 __global__ void upsample_naive(
 	DeviceImage<float> *coarse_depth_devptr,
-	DeviceImage<float> *full_dense_devptr)
+	DeviceImage<float> *full_dense_devptr,
+	const int cost_downsampling)
 {
 	const int x = threadIdx.x + blockDim.x * blockIdx.x;
 	const int y = threadIdx.y + blockDim.y * blockIdx.y;
@@ -323,8 +326,7 @@ __global__ void upsample_naive(
 	if(x >= width || y >= height)
 		return;
 	const int my_quadsize = 1 << tex2D(quadtree_tex, x, y);
-	full_dense_devptr->atXY(x,y) = coarse_depth_devptr->atXY(x/my_quadsize*my_quadsize, y/my_quadsize*my_quadsize);
+	full_dense_devptr->atXY(x,y) = coarse_depth_devptr->atXY((((x/cost_downsampling)*cost_downsampling)/my_quadsize)*my_quadsize, (((y/cost_downsampling)*cost_downsampling)/my_quadsize)*my_quadsize);
 }
-	
 
 }
