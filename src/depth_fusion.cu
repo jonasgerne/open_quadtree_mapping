@@ -148,7 +148,7 @@ __global__ void fuse_currentmap(
   float depth_estimate = depth_output_devptr->atXY(x,y);
   // float uncertianity = depth_estimate * depth_estimate * 0.01;
   // float uncertianity = 1.0;
-  float uncertianity = fmaxf(0.5,depth_estimate*0.2);
+  float uncertianity = fmaxf(0.5,depth_estimate*0.2); //TODO: Add parameter
   uncertianity *= uncertianity;
   if(depth_estimate <= 0.0f)
     uncertianity = 1e9;
@@ -180,7 +180,7 @@ __global__ void fuse_currentmap(
   float new_sq = uncertianity * sigma_sq / (uncertianity + sigma_sq);
   float new_miu = (depth_estimate * sigma_sq + miu * uncertianity) / (uncertianity + sigma_sq);
   float c1 = (a / (a+b)) * normpdf(depth_estimate, miu, uncertianity + sigma_sq);
-  float c2 = (b / (a+b)) * 1 / 50.0f;
+  float c2 = (b / (a+b)) * 1 / 50.0f; //TODO: Add parameter
 
   // Update based on outlier ratio
   const float norm_const = c1 + c2;
