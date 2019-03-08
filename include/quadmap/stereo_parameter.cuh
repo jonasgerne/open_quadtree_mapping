@@ -1,7 +1,10 @@
 // search range
 //#define USE_INVERSE_DEPTH
 
-#define MAX_DEP 5.0
+// Original
+//#define MAX_DEP 100.0
+// Adjusted
+#define MAX_DEP 10.0
 #define MIN_DEP 0.5
 #define MIN_GRAIDIENT 5
 #define MIN_INV_DEPTH 1.0/MAX_DEP
