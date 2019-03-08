@@ -46,6 +46,7 @@ public:
       bool useQuadtree,
       bool doFusion,
       bool doGlobalUpsampling,
+      bool fixNearPoint,
       bool printTimings,
       float P1, float P2,
       float new_keyframe_max_angle,

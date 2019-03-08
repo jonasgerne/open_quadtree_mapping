@@ -30,6 +30,7 @@ quadmap::Depthmap::Depthmap(size_t width,
                         bool useQuadtree,
                         bool doFusion,
                         bool doGlobalUpsampling,
+                        bool fixNearPoint,
                         bool printTimings,
                         float P1, float P2,
                         float new_keyframe_max_angle,
@@ -41,7 +42,7 @@ quadmap::Depthmap::Depthmap(size_t width,
   : width_(width)
   , height_(height)
   , seeds_(width, height, cost_downsampling, quadmap::PinholeCamera(fx, fy, cx, cy), doBeliefPropagation, useQuadtree,
-          doFusion, doGlobalUpsampling, printTimings, P1, P2, new_keyframe_max_angle, new_keyframe_max_distance, new_reference_max_angle,
+          doFusion, doGlobalUpsampling, fixNearPoint, printTimings, P1, P2, new_keyframe_max_angle, new_keyframe_max_distance, new_reference_max_angle,
           new_reference_max_distance, min_inlier_ratio_good, min_inlier_ratio_bad)
   , fx_(fx)
   , fy_(fy)

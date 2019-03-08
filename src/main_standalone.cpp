@@ -129,6 +129,7 @@ int main(int argc, char **argv)
 
   bool doBeliefPropagation = true;
   bool display_enabled = false;
+  bool fixNearPoint = false;
   bool printTimings = false;
   float P1 = 0.003f; // 0.003 (original)
   float P2 = 0.01f; // 0.01 (original)
@@ -237,7 +238,7 @@ int main(int argc, char **argv)
 
   std::shared_ptr<quadmap::Depthmap> depthmap_ = std::make_shared<quadmap::Depthmap>(width, height, cost_downsampling,
           fx, cx, fy, cy, undist_map1, undist_map2, semi2dense_ratio, doBeliefPropagation, useQuadtree, doFusion,
-          doGlobalUpsampling, printTimings, P1, P2, new_keyframe_max_angle, new_keyframe_max_distance, new_reference_max_angle,
+          doGlobalUpsampling, fixNearPoint, printTimings, P1, P2, new_keyframe_max_angle, new_keyframe_max_distance, new_reference_max_angle,
           new_reference_max_distance, min_inlier_ratio_good, min_inlier_ratio_bad);
 
   // Run

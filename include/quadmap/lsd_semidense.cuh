@@ -35,7 +35,8 @@ __global__ void update_keyframe_kernel(
 	float4 camera_para,
 	SE3<float> key_to_income,
 	DeviceImage<float> *debug_devptr,
-    DeviceImage<float4> *epipolar_devptr);
+    DeviceImage<float4> *epipolar_devptr,
+    bool fixNearPoint);
 __global__ void depth_project_kernel(
 	DeviceImage<DepthSeed> *keyframe_devptr,
 	float4 camera_para,
@@ -61,7 +62,8 @@ __device__ __forceinline__ float search_point(
   	float &result_idep,
   	float &result_var,
   	float &result_eplength,
-    float4& result_epipolar);
+    float4& result_epipolar,
+    bool fixNearPoint);
 __device__ __forceinline__ float subpixle_interpolate(
 	const float &pre_cost,
 	const float &cost,

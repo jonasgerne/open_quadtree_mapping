@@ -33,6 +33,7 @@ quadmap::SeedMatrix::SeedMatrix(
     bool useQuadtree,
     bool doFusion,
     bool doGlobalUpsampling,
+    bool fixNearPoint,
     bool printTimings,
     float P1, float P2,
     float new_keyframe_max_angle,
@@ -64,6 +65,7 @@ quadmap::SeedMatrix::SeedMatrix(
   , useQuadtree(useQuadtree)
   , doFusion(doFusion)
   , doGlobalUpsampling(doGlobalUpsampling)
+  , fixNearPoint(fixNearPoint)
   , printTimings(printTimings)
   , P1(P1)
   , P2(P2)
@@ -188,7 +190,7 @@ bool quadmap::SeedMatrix::add_frames(
     // Random depth initialization
     initial_keyframe();
     initialized = true;
-    return false;
+    return true;
   }
 
   // Epipolar depth search and update
@@ -214,14 +216,14 @@ bool quadmap::SeedMatrix::add_frames(
 
   // If not a dense frame, return update with semidense depth
   if (frame_index % semi2dense_ratio != 0) {
-      //return false;
-      download_output();
-      return true;
+      return false;
+      //download_output();
+      //return true;
   }
 
   //for full dense
   bool has_depth_output = false;
-  if(framelist_host.size() > 1)
+  if(framelist_host.size() >= KEYFRAME_NUM)
   {
     // Compute depth from multi-view-stereo using quadtree and belief propagation
     extract_depth();
@@ -536,26 +538,28 @@ void quadmap::SeedMatrix::update_keyframe()
     camera_para,
     key_to_income,
     debug_image.dev_ptr,
-    epipolar_image.dev_ptr);
+    epipolar_image.dev_ptr,
+            fixNearPoint);
 
   // cudaDeviceSynchronize();
   // Regularization from LSD-SLAM
-  //regulizeDepth_FillHoles_kernel<<<image_grid, image_block>>>(keyframe_semidense.dev_ptr);
-  //regulizeDepth_kernel<<<image_grid, image_block>>>(keyframe_semidense.dev_ptr, false);
+  regulizeDepth_FillHoles_kernel<<<image_grid, image_block>>>(keyframe_semidense.dev_ptr);
+  regulizeDepth_kernel<<<image_grid, image_block>>>(keyframe_semidense.dev_ptr, false);
   // cudaDeviceSynchronize();
 
   // Project depth from keyframe to new frame
-  /*depth_project_kernel<<<image_grid, image_block>>>(
+  depth_project_kernel<<<image_grid, image_block>>>(
   keyframe_semidense.dev_ptr,
   camera_para,
   key_to_income,
-  debug_image.dev_ptr);*/
-  SE3<float> identity;
+  debug_image.dev_ptr);
+
+  /*SE3<float> identity;
   depth_project_kernel << <image_grid, image_block >> >(
       keyframe_semidense.dev_ptr,
       camera_para,
       identity,
-      depth_output.dev_ptr);
+      depth_output.dev_ptr);*/
 
   depth_project_kernel<<<image_grid, image_block>>>(
   keyframe_semidense.dev_ptr,

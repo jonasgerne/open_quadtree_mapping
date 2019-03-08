@@ -126,10 +126,10 @@ void bp_extract(int cost_downsampling, DeviceImage<PIXEL_COST> &image_cost_map, 
         dim3 bp_block;
         dim3 bp_grid;
         bp_block.x = 4;
-        bp_block.y = 64;
+        bp_block.y = DEPTH_NUM;
         bp_grid.y = h_height[i_leverl];
-        //bp_grid.x = (h_width[i_leverl] + 1) / 2; //every iterate on the A or B set of the whole image
-        bp_grid.x = h_width[i_leverl];
+        bp_grid.x = (h_width[i_leverl] + 1) / 2; //every iterate on the A or B set of the whole image
+        //bp_grid.x = h_width[i_leverl];
         bool A_set = true;
         // Update messages iteratively by summing cost at each costvolume entry with values from messages from 3-neighbors for each direction
         // applying SGM cost regularization strategy
@@ -237,10 +237,10 @@ __global__ void bp(
     }
 
     // Alternate between even and odd pixels in x direction
-    /*if(A_set)
+    if(A_set)
         x = x * 2 + y % 2;
     else
-        x = x * 2 + (y + 1) % 2 ;*/
+        x = x * 2 + (y + 1) % 2 ;
 
     const int width = data_devptr->width;
     const int height = data_devptr->height;

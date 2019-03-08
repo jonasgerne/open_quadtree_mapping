@@ -74,7 +74,7 @@ __global__ void prior_to_cost(
 // 	if(frame_id == 0)
 // 	{
 // 		cost[depth_id] = 0;
-// 		aggregate_num[deptcost_downsamplingh_id] = 0;
+// 		aggregate_num[depth_id] = 0;
 // 	}
 // 	const int my_frame_id = (float) this_age / 5.0 * (float) frame_id;
 // 	__syncthreads();
@@ -160,8 +160,10 @@ __global__ void image_to_cost(
 
 	if(this_age >= frame_num)
 		this_age = frame_num - 1;
-	//if(this_age < 10)
-	//	this_age = 9;
+
+	// Age table not maintained so always zero
+	/*if(this_age < KEYFRAME_NUM)
+		this_age = KEYFRAME_NUM - 1;*/
 
     extern __shared__ float s[];
     float* cost = s;

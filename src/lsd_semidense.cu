@@ -188,8 +188,8 @@ __global__ void depth_project_kernel(
 	//try to add
 	//ignore the occultion
 	float new_depth = length(new_point);
-	//if(new_depth!=new_depth || keyseed.smooth_variance() > 0.02)
-	//	return;
+	if(new_depth!=new_depth || keyseed.smooth_variance() > 0.02)
+		return;
 
 	depth->atXY(new_x,new_y) = new_depth;
 	// depth->atXY(x,y) = 1.0/keyseed.smooth_idepth();
@@ -365,7 +365,7 @@ __global__ void regulizeDepth_FillHoles_kernel(DeviceImage<DepthSeed> *keyframe_
 	}
 }
 
-__global__ void update_keyframe_kernel(DeviceImage<DepthSeed> *keyframe_devptr, float4 camera_para, SE3<float> key_to_income, DeviceImage<float> *debug_devptr, DeviceImage<float4> *epipolar_devptr)
+__global__ void update_keyframe_kernel(DeviceImage<DepthSeed> *keyframe_devptr, float4 camera_para, SE3<float> key_to_income, DeviceImage<float> *debug_devptr, DeviceImage<float4> *epipolar_devptr, bool fixNearPoint)
 {
 	const int x = threadIdx.x + blockIdx.x * blockDim.x;
 	const int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -422,18 +422,18 @@ __global__ void update_keyframe_kernel(DeviceImage<DepthSeed> *keyframe_devptr, 
 	float search_error, result_idep, result_var, result_eplength;
 	float search_min_idep = MIN_INV_DEPTH;
 	float search_max_idep = MAX_INV_DEPTH;
-	if(!first_observe)
+	/*if(!first_observe)
 	{
 		search_min_idep = depthseed.smooth_idepth() - 2.0 * sqrtf(depthseed.smooth_variance());
 		search_max_idep = depthseed.smooth_idepth() + 2.0 * sqrtf(depthseed.smooth_variance());
 		search_min_idep = search_min_idep < MIN_INV_DEPTH ? MIN_INV_DEPTH : search_min_idep;
 		search_max_idep = search_max_idep > MAX_INV_DEPTH ? MAX_INV_DEPTH : search_max_idep;
-	}
+	}*/
 
 	search_error = search_point(
 		x,y,width,height,epiline,
 		gradient_max,gradient_alone_epipolar,search_min_idep,search_max_idep,camera_para,key_to_income,
-		result_idep,result_var,result_eplength, epipolar_devptr->atXY(x, y));
+		result_idep,result_var,result_eplength, epipolar_devptr->atXY(x, y), fixNearPoint);
 
 	float deff_idep = result_idep - depthseed.smooth_idepth();
 
@@ -514,7 +514,8 @@ float search_point(
   	float &result_idep,
   	float &result_var,
   	float &result_eplength,
-    float4& result_epipolar)
+    float4& result_epipolar,
+    bool fixNearPoint)
 {
   	//read patch
   	float this_patch[5];
@@ -534,7 +535,7 @@ float search_point(
   	float3 far_point = KRKiP + KT * min_idep;
 
     // if the assumed close-point lies behind the image, have to change that.
-    if (near_point.z < 0.001f)
+    if (fixNearPoint && (near_point.z < 0.001f))
     {
         // KRKip.z + KT.z * id != 0
         // => id = -KRKip-z / KT.z
@@ -663,7 +664,7 @@ float search_point(
 	float best_match_sub = best_step;
 	bool didSubpixel = false;
 	//subpixel
-	if(false) {
+	{
 		// ================== compute exact match =========================
 		// compute gradients (they are actually only half the real gradient)
 		float gradPre_pre = -(pre_best_score - best_match_DiffErrPre);

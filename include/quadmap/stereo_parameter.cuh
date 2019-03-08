@@ -2,7 +2,7 @@
 //#define USE_INVERSE_DEPTH
 
 #define MAX_DEP 5.0
-#define MIN_DEP 1.0
+#define MIN_DEP 0.5
 #define MIN_GRAIDIENT 5
 #define MIN_INV_DEPTH 1.0/MAX_DEP
 #define MAX_INV_DEPTH 1.0/MIN_DEP
