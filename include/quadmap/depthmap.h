@@ -54,7 +54,10 @@ public:
       float new_reference_max_angle,
       float new_reference_max_distance,
       float min_inlier_ratio_good,
-      float min_inlier_ratio_bad);
+      float min_inlier_ratio_bad,
+      float new_variance_factor,
+      float prev_variance_factor,
+      float variance_offset);
 
   bool add_frames(  const cv::Mat &img_curr,
                     const SE3<float> &T_curr_world);

@@ -58,7 +58,10 @@ public:
       float new_reference_max_angle,
       float new_reference_max_distance,
       float min_inlier_ratio_good,
-      float min_inlier_ratio_bad);
+      float min_inlier_ratio_bad,
+      float new_variance_factor,
+      float prev_variance_factor,
+      float variance_offset);
   ~SeedMatrix();
 
   void set_remap(cv::Mat _remap_1, cv::Mat _remap_2);
@@ -122,6 +125,9 @@ private:
   float new_reference_max_distance;
   float min_inlier_ratio_good;
   float min_inlier_ratio_bad;
+  float new_variance_factor;
+  float prev_variance_factor;
+  float variance_offset;
 
   MatchParameter match_parameter;
 

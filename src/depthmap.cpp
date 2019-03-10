@@ -38,12 +38,15 @@ quadmap::Depthmap::Depthmap(size_t width,
                         float new_reference_max_angle,
                         float new_reference_max_distance,
                         float min_inlier_ratio_good,
-                        float min_inlier_ratio_bad)
+                        float min_inlier_ratio_bad,
+                        float new_variance_factor,
+                        float prev_variance_factor,
+                        float variance_offset)
   : width_(width)
   , height_(height)
   , seeds_(width, height, cost_downsampling, quadmap::PinholeCamera(fx, fy, cx, cy), doBeliefPropagation, useQuadtree,
           doFusion, doGlobalUpsampling, fixNearPoint, printTimings, P1, P2, new_keyframe_max_angle, new_keyframe_max_distance, new_reference_max_angle,
-          new_reference_max_distance, min_inlier_ratio_good, min_inlier_ratio_bad)
+          new_reference_max_distance, min_inlier_ratio_good, min_inlier_ratio_bad, new_variance_factor, prev_variance_factor, variance_offset)
   , fx_(fx)
   , fy_(fy)
   , cx_(cx)

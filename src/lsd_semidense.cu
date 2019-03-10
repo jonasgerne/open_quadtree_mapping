@@ -188,7 +188,7 @@ __global__ void depth_project_kernel(
 	//try to add
 	//ignore the occultion
 	float new_depth = length(new_point);
-	if(new_depth!=new_depth || keyseed.smooth_variance() > 0.02)
+	if(new_depth!=new_depth || keyseed.smooth_variance() > 0.02) // TODO: Add paraemter
 		return;
 
 	depth->atXY(new_x,new_y) = new_depth;
@@ -559,7 +559,7 @@ float search_point(
   	if(far_uv.x <= 1 || far_uv.y <= 1 || far_uv.x >= width-2 || far_uv.y >= height-2)
   		return -1;
 
-    float max_epl_length_crop = 100.0f;
+    float max_epl_length_crop = 100.0f; // TODO: Add parameter
     if (search_length > max_epl_length_crop)
     {
         near_uv = far_uv + search_segment * max_epl_length_crop / search_length;

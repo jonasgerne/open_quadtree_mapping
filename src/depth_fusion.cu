@@ -51,12 +51,15 @@ __global__ void fuse_transform(
 
   // Transform point from last to current frame
   float3 projected = last_to_cur * (dir * pixel_info.z);
+
+  // Ignore if closer than min depth
   float new_depth = length(projected);
-  if(new_depth <= 0.5)
+  if(new_depth <= MIN_DEP)
     return;
 
   pixel_info.z = new_depth;
-  pixel_info.w += new_depth * 0.01; //??
+  // Accumulate variance ??
+  // pixel_info.w += new_depth * 0.01; // TODO: Add parameter
   // pixel_info.y *= 1.001;
 
   // Project onto current image
@@ -133,7 +136,10 @@ __global__ void fuse_currentmap(
   DeviceImage<float> *depth_output_devptr,
   DeviceImage<float4> *former_depth_devptr,
   DeviceImage<float4> *new_depth_devptr,
-  const float min_inlier_ratio_good)
+  const float min_inlier_ratio_good,
+  const float new_variance_factor,
+  const float prev_variance_factor,
+  const float variance_offset)
 {
   const int x = threadIdx.x + blockIdx.x * blockDim.x;
   const int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -141,7 +147,7 @@ __global__ void fuse_currentmap(
   const int width = transform_table_devptr->width;
   const int height = transform_table_devptr->height;
 
-  if(x >= width || y >= height)
+  if (x >= width || y >= height)
     return;
 
   // Current measurement and uncertainty
@@ -150,7 +156,7 @@ __global__ void fuse_currentmap(
   // float uncertianity = 1.0;
   float uncertianity = fmaxf(0.5,depth_estimate*0.2); //TODO: Add parameter
   uncertianity *= uncertianity;
-  if(depth_estimate <= 0.0f)
+  if (depth_estimate <= 0.0f)
     uncertianity = 1e9;
 
   //printf("Uncertainty %f\n", uncertianity);
@@ -158,7 +164,7 @@ __global__ void fuse_currentmap(
   // Get previous estimate
   int pre_position = transform_table_devptr->atXY(x,y);
   float4 pixel_info;
-  if(pre_position > 0)
+  if (pre_position > 0)
     pixel_info = former_depth_devptr->atXY(pre_position%width, pre_position/width);
   else
   {
@@ -166,8 +172,8 @@ __global__ void fuse_currentmap(
     pixel_info = make_float4(initial_a, initial_b, depth_estimate, initial_variance);
   }
 
-  // Reset previous estimate if depth difference is bigger than sum of variances
-  if( (depth_estimate - pixel_info.z)*(depth_estimate - pixel_info.z) > uncertianity + pixel_info.w)
+  // Reset previous estimate if depth difference is bigger than sum of variances, eg due to an occlusion
+  if ( (depth_estimate - pixel_info.z)*(depth_estimate - pixel_info.z) > uncertianity * new_variance_factor + pixel_info.w * prev_variance_factor + variance_offset)
      pixel_info = make_float4(initial_a, initial_b, depth_estimate, initial_variance);
 
   // Previous estimate

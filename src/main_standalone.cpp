@@ -148,7 +148,7 @@ int main(int argc, char **argv)
   float minDepth = MIN_DEP;
   float maxDepth = MAX_DEP;
 
-  // Read intrinsics
+  // Arguments
   std::string intrinsicsPath = argv[1];
   std::string posesPath = argv[2];
   std::string rgbPattern = argv[3];
@@ -159,7 +159,11 @@ int main(int argc, char **argv)
   int cost_downsampling = atoi(argv[8]); // 4 (original)
   float min_inlier_ratio_good = atof(argv[9]); // 0.6 (original)
   float min_inlier_ratio_bad = atof(argv[10]); // 0.45 (original)
+  float new_variance_factor = atof(argv[11]); // 1.0f (original)
+  float prev_variance_factor = atof(argv[12]); // 1.0f (original)
+  float variance_offset = atof(argv[13]); // 0.0f (original)
 
+  // Read intrinsics
   std::ifstream intrinFile(intrinsicsPath);
   Eigen::Matrix<float, 3, 3, Eigen::RowMajor> intrinsics;
   std::string line;
@@ -239,7 +243,7 @@ int main(int argc, char **argv)
   std::shared_ptr<quadmap::Depthmap> depthmap_ = std::make_shared<quadmap::Depthmap>(width, height, cost_downsampling,
           fx, cx, fy, cy, undist_map1, undist_map2, semi2dense_ratio, doBeliefPropagation, useQuadtree, doFusion,
           doGlobalUpsampling, fixNearPoint, printTimings, P1, P2, new_keyframe_max_angle, new_keyframe_max_distance, new_reference_max_angle,
-          new_reference_max_distance, min_inlier_ratio_good, min_inlier_ratio_bad);
+          new_reference_max_distance, min_inlier_ratio_good, min_inlier_ratio_bad, new_variance_factor, prev_variance_factor, variance_offset);
 
   // Run
   for (int idx = 0; idx < poses.size(); idx++)
@@ -270,11 +274,30 @@ int main(int argc, char **argv)
           savePFM(depthmap_mat, buffer);
           cv::minMaxIdx(depthmap_mat, &minVal, &maxVal);
           
-          static cv::Mat depthNorm, depthColor;
-          cv::threshold(depthmap_mat, depthmap_mat, minDepth, minDepth, cv::THRESH_TOZERO);
-          cv::threshold(depthmap_mat, depthmap_mat, maxDepth, maxDepth, cv::THRESH_TRUNC);
-          cv::normalize(depthmap_mat, depthNorm, 0, 255, cv::NORM_MINMAX, CV_8U);
+          cv::Mat depthNorm, depthColor;
+          //cv::threshold(depthmap_mat, depthmap_mat, minDepth, minDepth, cv::THRESH_TOZERO);
+          //cv::threshold(depthmap_mat, depthmap_mat, maxDepth, maxDepth, cv::THRESH_TRUNC);
+          //cv::normalize(depthmap_mat, depthNorm, 0, 255, cv::NORM_MINMAX, CV_8U);
+          //cv::applyColorMap(depthNorm, depthColor, cv::COLORMAP_JET);
+          depthNorm = depthmap_mat.clone();
+          depthNorm = (depthNorm - minDepth) / (maxDepth - minDepth) * 255.0f;
+          depthNorm.convertTo(depthNorm, CV_8U);
           cv::applyColorMap(depthNorm, depthColor, cv::COLORMAP_JET);
+          for (int i = 0; i < depthmap_mat.rows; i++) {
+              for (int j = 0; j < depthmap_mat.cols; j++) {
+                  if (depthmap_mat.at<float>(i, j) < minDepth) {
+                      depthColor.at<cv::Vec3b>(i, j)[0] = 0;
+                      depthColor.at<cv::Vec3b>(i, j)[1] = 0;
+                      depthColor.at<cv::Vec3b>(i, j)[2] = 0;
+                  }
+                  if (depthmap_mat.at<float>(i, j) > maxDepth) {
+                      depthColor.at<cv::Vec3b>(i, j)[0] = 0;
+                      depthColor.at<cv::Vec3b>(i, j)[1] = 0;
+                      depthColor.at<cv::Vec3b>(i, j)[2] = 0;
+                  }
+              }
+          }
+
           sprintf(buffer, "%010d.png", idx);
           cv::imwrite(buffer, depthColor);
           cv::Mat debug_mat = depthmap_->getDebugmap();

@@ -52,5 +52,8 @@ __global__ void fuse_currentmap(
     DeviceImage<float> *depth_output_devptr,
     DeviceImage<float4> *former_depth_devptr,
     DeviceImage<float4> *new_depth_devptr,
-    const float min_inlier_ratio_good);
+    const float min_inlier_ratio_good,
+    const float new_variance_factor,
+    const float prev_variance_factor,
+    const float variance_offset);
 }//namespace

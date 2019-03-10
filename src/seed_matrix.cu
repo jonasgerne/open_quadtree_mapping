@@ -41,7 +41,10 @@ quadmap::SeedMatrix::SeedMatrix(
     float new_reference_max_angle,
     float new_reference_max_distance,
     float min_inlier_ratio_good,
-    float min_inlier_ratio_bad)
+    float min_inlier_ratio_bad,
+    float new_variance_factor,
+    float prev_variance_factor,
+    float variance_offset)
   : width(_width)
   , height(_height)
   , cost_downsampling(_cost_downsampling)
@@ -75,6 +78,9 @@ quadmap::SeedMatrix::SeedMatrix(
   , new_reference_max_distance(new_reference_max_distance)
   , min_inlier_ratio_good(min_inlier_ratio_good)
   , min_inlier_ratio_bad(min_inlier_ratio_bad)
+  , new_variance_factor(new_variance_factor)
+  , prev_variance_factor(prev_variance_factor)
+  , variance_offset(variance_offset)
   , frame_index(0)
 {
   cv_output.create(height, width, CV_32FC1);
@@ -501,6 +507,8 @@ void quadmap::SeedMatrix::create_new_keyframe_async()
 
 void quadmap::SeedMatrix::update_keyframe()
 {
+  printf("Updating keyframe with semidense matching\n");
+
   bindTexture(income_image_tex, income_image);
   bindTexture(income_gradient_tex, income_gradient);
   bindTexture(keyframe_image_tex, keyframe_image);
@@ -547,20 +555,16 @@ void quadmap::SeedMatrix::update_keyframe()
   regulizeDepth_kernel<<<image_grid, image_block>>>(keyframe_semidense.dev_ptr, false);
   // cudaDeviceSynchronize();
 
-  // Project depth from keyframe to new frame
+  // Project semidense depth from keyframe to new frame
   depth_project_kernel<<<image_grid, image_block>>>(
   keyframe_semidense.dev_ptr,
   camera_para,
   key_to_income,
   debug_image.dev_ptr);
 
-  /*SE3<float> identity;
-  depth_project_kernel << <image_grid, image_block >> >(
-      keyframe_semidense.dev_ptr,
-      camera_para,
-      identity,
-      depth_output.dev_ptr);*/
+  depth_output = debug_image;
 
+  // Project semidense depth from keyframe to frame
   depth_project_kernel<<<image_grid, image_block>>>(
   keyframe_semidense.dev_ptr,
   camera_para,
@@ -579,6 +583,8 @@ void quadmap::SeedMatrix::update_keyframe()
 
 void quadmap::SeedMatrix::extract_depth()
 {
+  printf("Extracting depth\n");
+
   clock_t depth_extract_start = std::clock();
 
   bindTexture(income_image_tex, income_image);
@@ -766,7 +772,10 @@ void quadmap::SeedMatrix::fuse_output_depth()
   depth_output.dev_ptr,
   depth_fuse_seeds.dev_ptr,
   new_seed.dev_ptr,
-  min_inlier_ratio_good);
+  min_inlier_ratio_good,
+  new_variance_factor,
+  prev_variance_factor,
+  variance_offset);
   // cudaDeviceSynchronize();
 
   // assign
