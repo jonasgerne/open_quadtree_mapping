@@ -43,7 +43,8 @@ __global__ void fuse_transform(
     DeviceImage<int> *transform_table_devptr,
     SE3<float> last_to_cur,
     PinholeCamera camera,
-    const float min_inlier_ratio_bad);
+    const float min_inlier_ratio_bad,
+    const float min_depth);
 
 __global__ void hole_filling(DeviceImage<int> *transform_table_devptr);
 

@@ -30,7 +30,8 @@ __global__ void fuse_transform(
   DeviceImage<int> *transform_table_devptr,
   SE3<float> last_to_cur,
   PinholeCamera camera,
-  const float min_inlier_ratio_bad)
+  const float min_inlier_ratio_bad,
+  const float min_depth)
 {
   const int x = threadIdx.x + blockIdx.x * blockDim.x;
   const int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -54,7 +55,7 @@ __global__ void fuse_transform(
 
   // Ignore if closer than min depth
   float new_depth = length(projected);
-  if(new_depth <= MIN_DEP)
+  if(new_depth <= min_depth)
     return;
 
   pixel_info.z = new_depth;

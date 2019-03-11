@@ -10,7 +10,15 @@
 namespace quadmap
 {
 //function declear here!
-void bp_extract(DeviceImage<PIXEL_COST> &image_cost_map, DeviceImage<float> &depth, float P1, float P2);
+void bp_extract(
+            int cost_downsampling,
+            bool inverse_depth,
+            float min_depth,
+            float step_depth,
+            DeviceImage<PIXEL_COST> &image_cost_map,
+            DeviceImage<float> &depth,
+            float P1,
+            float P2);
 __global__ void cost_distribute(
     DeviceImage<PIXEL_COST> *l0_cost_devptr,
     DeviceImage<PIXEL_COST> *l1_cost_devptr);
@@ -27,6 +35,9 @@ __global__ void upsample(
     DeviceImage<PIXEL_COST> *l1_message_devptr,
     DeviceImage<PIXEL_COST> *l0_message_devptr);
 __global__ void depth_extract(
+    int cost_downsampling,
+    float min_depth,
+    float step_min_depth,
     DeviceImage<PIXEL_COST> *data_devptr,
     DeviceImage<PIXEL_COST> *lm_devptr,
     DeviceImage<PIXEL_COST> *rm_devptr,

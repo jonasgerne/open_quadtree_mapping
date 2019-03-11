@@ -49,7 +49,7 @@ std::shared_ptr<quadmap::Depthmap> depthmap_;
 
 bool initialize(Eigen::Matrix<float, 3, 3, Eigen::RowMajor> K, int width, int height, int cost_downsampling,
         bool doBeliefPropagation, bool useQuadtree, bool doFusion, bool doGlobalUpsampling, bool fixNearPoint, bool printTimings,
-        float P1, float P2, float new_keyframe_max_angle, float new_keyframe_max_distance, float new_reference_max_angle,
+        float P1, float P2, float minDepth, float maxDepth, bool inverse_depth, float new_keyframe_max_angle, float new_keyframe_max_distance, float new_reference_max_angle,
         float new_reference_max_distance, float min_inlier_ratio_good, float min_inlier_ratio_bad, float new_variance_factor,
         float prev_variance_factor, float variance_offset) {
 
@@ -82,7 +82,7 @@ bool initialize(Eigen::Matrix<float, 3, 3, Eigen::RowMajor> K, int width, int he
 
     depthmap_ = std::make_shared<quadmap::Depthmap>(width, height, cost_downsampling, fx, cx, fy, cy, undist_map1,
             undist_map2, semi2dense_ratio, doBeliefPropagation, useQuadtree, doFusion, doGlobalUpsampling, fixNearPoint, printTimings,
-            P1, P2, new_keyframe_max_angle, new_keyframe_max_distance, new_reference_max_angle, new_reference_max_distance,
+            P1, P2, inverse_depth, minDepth, maxDepth, new_keyframe_max_angle, new_keyframe_max_distance, new_reference_max_angle, new_reference_max_distance,
             min_inlier_ratio_good, min_inlier_ratio_bad, new_variance_factor, prev_variance_factor, variance_offset);
 
     return true;

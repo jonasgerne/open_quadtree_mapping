@@ -36,6 +36,9 @@ quadmap::SeedMatrix::SeedMatrix(
     bool fixNearPoint,
     bool printTimings,
     float P1, float P2,
+    bool inverse_depth,
+    float min_depth,
+    float max_depth,
     float new_keyframe_max_angle,
     float new_keyframe_max_distance,
     float new_reference_max_angle,
@@ -72,6 +75,9 @@ quadmap::SeedMatrix::SeedMatrix(
   , printTimings(printTimings)
   , P1(P1)
   , P2(P2)
+  , inverse_depth(inverse_depth)
+  , min_depth(min_depth)
+  , max_depth(max_depth)
   , new_keyframe_max_angle(new_keyframe_max_angle)
   , new_keyframe_max_distance(new_keyframe_max_distance)
   , new_reference_max_angle(new_reference_max_angle)
@@ -97,6 +103,24 @@ quadmap::SeedMatrix::SeedMatrix(
 
   depth_output.zero();
   debug_image.zero();
+
+  if(inverse_depth) {
+    step_depth = (1.0f / min_depth - 1.0f / max_depth) / float(DEPTH_NUM - 1);
+  }
+  else {
+    step_depth = (max_depth - min_depth) / float(DEPTH_NUM - 2);
+  }
+
+  printf("Min Depth %f | Max Depth %f | Step %f\n", min_depth, max_depth, step_depth);
+
+  printf("Depth Range\n");
+  for(int i = 0; i < DEPTH_NUM; i++) {
+    if(inverse_depth)
+      printf("%f ", 1.0 / (step_depth * i + min_depth));
+    else
+      printf("%f ", (step_depth * i + min_depth));
+  }
+  printf("\n");
 
   //for cpu async
   cudaStreamCreate(&swict_semidense_stream1);
@@ -547,7 +571,9 @@ void quadmap::SeedMatrix::update_keyframe()
     key_to_income,
     debug_image.dev_ptr,
     epipolar_image.dev_ptr,
-            fixNearPoint);
+    1.0f/max_depth,
+    1.0f/min_depth,
+    fixNearPoint);
 
   // cudaDeviceSynchronize();
   // Regularization from LSD-SLAM
@@ -654,6 +680,9 @@ void quadmap::SeedMatrix::extract_depth()
   cost_grid.x = width / cost_downsampling;
   cost_grid.y = height / cost_downsampling;
   image_to_cost<<<cost_grid, cost_block, 2 * DEPTH_NUM * framelist_host.size() * sizeof(float)>>>(
+    inverse_depth,
+    inverse_depth ? 1.0f/max_depth : min_depth,
+    step_depth,
     match_parameter.dev_ptr,
     pixel_age_table.dev_ptr,
     image_cost.dev_ptr,
@@ -692,8 +721,9 @@ void quadmap::SeedMatrix::extract_depth()
   depth_output.zero();
 
   if (!doBeliefPropagation) {
+      printf("Naive Extraction...\n");
       // naive extract
-      naive_extract << <normalize_grid, normalize_block >> > (image_cost.dev_ptr, debug_image.dev_ptr, cost_downsampling);
+      naive_extract << <normalize_grid, normalize_block >> > (cost_downsampling, inverse_depth, inverse_depth ? 1.0f/max_depth : min_depth, step_depth, image_cost.dev_ptr, debug_image.dev_ptr);
       cudaDeviceSynchronize();
       //printf("CUDA Status %s\n", cudaGetErrorString(cudaGetLastError()));
       if(printTimings)
@@ -707,9 +737,10 @@ void quadmap::SeedMatrix::extract_depth()
         printf("  naive upsample cost %f ms \n", (std::clock() - depth_extract_start) / (double)CLOCKS_PER_SEC * 1000); depth_extract_start = std::clock();
   }
   else {
+      printf("Belief Propagation...\n");
       // bp extract the depth
       // debug_image.zero();
-      bp_extract(cost_downsampling, image_cost, debug_image, P1, P2);
+      bp_extract(cost_downsampling, inverse_depth, inverse_depth ? 1.0f/max_depth : min_depth, step_depth, image_cost, debug_image, P1, P2);
       // hbp(image_cost, feature_depth);
       cudaDeviceSynchronize();
       //printf("CUDA Status %s\n", cudaGetErrorString(cudaGetLastError()));
@@ -759,7 +790,7 @@ void quadmap::SeedMatrix::fuse_output_depth()
   // Transform depth from last depth map to new frame
   SE3<float> last_to_income = income_transform * this_fuse_worldpose.inv();
   fuse_transform<<<image_grid, image_block>>>(depth_fuse_seeds.dev_ptr, transform_table.dev_ptr, last_to_income,
-          camera, min_inlier_ratio_bad);
+          camera, min_inlier_ratio_bad, inverse_depth ? 1.0f/max_depth : min_depth);
   // cudaDeviceSynchronize();
 
   // Fill holes (LSD SLAM)

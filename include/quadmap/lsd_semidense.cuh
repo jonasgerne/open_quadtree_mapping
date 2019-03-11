@@ -36,6 +36,8 @@ __global__ void update_keyframe_kernel(
 	SE3<float> key_to_income,
 	DeviceImage<float> *debug_devptr,
     DeviceImage<float4> *epipolar_devptr,
+    float min_inv_depth,
+    float max_inv_depth,
     bool fixNearPoint);
 __global__ void depth_project_kernel(
 	DeviceImage<DepthSeed> *keyframe_devptr,

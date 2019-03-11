@@ -3,7 +3,15 @@
 namespace quadmap
 {
 //function declear here!
-void bp_extract(int cost_downsampling, DeviceImage<PIXEL_COST> &image_cost_map, DeviceImage<float> &depth, float P1, float P2);
+void bp_extract(
+        int cost_downsampling,
+        bool inverse_depth,
+        float min_depth,
+        float step_depth,
+        DeviceImage<PIXEL_COST> &image_cost_map,
+        DeviceImage<float> &depth,
+        float P1,
+        float P2);
 __global__ void cost_distribute(
     DeviceImage<PIXEL_COST> *l0_cost_devptr,
     DeviceImage<PIXEL_COST> *l1_cost_devptr);
@@ -18,7 +26,11 @@ __global__ void bp(
 __global__ void upsample(
     DeviceImage<PIXEL_COST> *l1_message_devptr,
     DeviceImage<PIXEL_COST> *l0_message_devptr);
-__global__ void depth_extract(int cost_downsampling,
+__global__ void depth_extract(
+    int cost_downsampling,
+    bool inverse_depth,
+    float min_depth,
+    float step_depth,
     DeviceImage<PIXEL_COST> *data_devptr,
     DeviceImage<PIXEL_COST> *lm_devptr,
     DeviceImage<PIXEL_COST> *rm_devptr,
@@ -29,7 +41,7 @@ __global__ void depth_extract(int cost_downsampling,
 //function define here!
 //we only optimize the cost at 16x16 and 32x32 level, for finer level, we only optimize at local patch and jump the corser level
 //we start the optimize at image_level, and the cost map begins at image_level
-void bp_extract(int cost_downsampling, DeviceImage<PIXEL_COST> &image_cost_map, DeviceImage<float> &depth, float P1, float P2)
+void bp_extract(int cost_downsampling, bool inverse_depth, float min_depth, float step_depth, DeviceImage<PIXEL_COST> &image_cost_map, DeviceImage<float> &depth, float P1, float P2)
 {
     const int width = image_cost_map.width;
     const int height = image_cost_map.height;
@@ -159,6 +171,9 @@ void bp_extract(int cost_downsampling, DeviceImage<PIXEL_COST> &image_cost_map, 
     depth_extract_grid.y = height;
     depth_extract <<< depth_extract_grid, depth_extract_block>>>(
         cost_downsampling,
+        inverse_depth,
+        min_depth,
+        step_depth,
         prycost_hostptr[0]->dev_ptr,
         message_hostptr[0]->dev_ptr,
         message_hostptr[1]->dev_ptr,
@@ -332,7 +347,11 @@ __global__ void bp(
         (rm_devptr->atXY(x, y)).set_cost(depth_id, min_cost);
 }
 
-__global__ void depth_extract(int cost_downsampling,
+__global__ void depth_extract(
+    int cost_downsampling,
+    bool inverse_depth,
+    float min_depth,
+    float step_depth,
     DeviceImage<PIXEL_COST> *data_devptr,
     DeviceImage<PIXEL_COST> *lm_devptr,
     DeviceImage<PIXEL_COST> *rm_devptr,
@@ -396,11 +415,10 @@ __global__ void depth_extract(int cost_downsampling,
 	            disparity = (float) min_id[0] - b_a / 2.0f;
             //disparity = (float)min_id[0] - b / (2.0f * a);
         }
-#ifdef USE_INVERSE_DEPTH
-        extracted_depth_devptr->atXY(x * cost_downsampling, y * cost_downsampling) = 1.0 / (STEP_INV_DEPTH * disparity + MIN_INV_DEPTH);
-#else
-        extracted_depth_devptr->atXY(x * cost_downsampling, y * cost_downsampling) = (STEP_DEPTH * disparity + MIN_DEP);
-#endif
+        if (inverse_depth)
+            extracted_depth_devptr->atXY(x * cost_downsampling, y * cost_downsampling) = 1.0 / (step_depth * disparity + min_depth);
+        else
+            extracted_depth_devptr->atXY(x * cost_downsampling, y * cost_downsampling) = (step_depth * disparity + min_depth);
     }
 }
 

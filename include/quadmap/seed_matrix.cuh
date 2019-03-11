@@ -53,6 +53,9 @@ public:
       bool fixNearPoint,
       bool printTimings,
       float P1, float P2,
+      bool inverse_depth,
+      float min_depth,
+      float max_depth,
       float new_keyframe_max_angle,
       float new_keyframe_max_distance,
       float new_reference_max_angle,
@@ -95,7 +98,7 @@ private:
   bool need_add_reference();
   void add_reference();
 
-  //for depth fusion
+  //for depth fusioseed_matrixn
   void fuse_output_depth();
 
   cudaStream_t swict_semidense_stream1;
@@ -113,6 +116,11 @@ private:
   bool doGlobalUpsampling;
   bool fixNearPoint;
   bool printTimings;
+
+  bool inverse_depth;
+  float min_depth;
+  float max_depth;
+  float step_depth;
 
   // BP Parameters
   float P1;

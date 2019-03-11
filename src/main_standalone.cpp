@@ -126,8 +126,6 @@ int main(int argc, char **argv)
   // pixel_cost.cuh:4 DEPTH_NUM
   // depth_fusion.cuh
 
-
-  bool doBeliefPropagation = true;
   bool display_enabled = false;
   bool fixNearPoint = false;
   bool printTimings = false;
@@ -145,23 +143,24 @@ int main(int argc, char **argv)
   float r1 = 0.0f;
   float r2 = 0.0f;
 
-  float minDepth = MIN_DEP;
-  float maxDepth = MAX_DEP;
-
   // Arguments
   std::string intrinsicsPath = argv[1];
   std::string posesPath = argv[2];
   std::string rgbPattern = argv[3];
-  bool useQuadtree = atoi(argv[4]);
-  bool doFusion = atoi(argv[5]);
-  bool doGlobalUpsampling = atoi(argv[6]);
-  int semi2dense_ratio = atoi(argv[7]); // 5 (original)
-  int cost_downsampling = atoi(argv[8]); // 4 (original)
-  float min_inlier_ratio_good = atof(argv[9]); // 0.6 (original)
-  float min_inlier_ratio_bad = atof(argv[10]); // 0.45 (original)
-  float new_variance_factor = atof(argv[11]); // 1.0f (original)
+  bool doBeliefPropagation = atoi(argv[4]);
+  bool useQuadtree = atoi(argv[5]);
+  bool doFusion = atoi(argv[6]);
+  bool doGlobalUpsampling = atoi(argv[7]);
+  int semi2dense_ratio = atoi(argv[8]); // 5 (original)
+  int cost_downsampling = atoi(argv[9]); // 4 (original)
+  float min_inlier_ratio_good = atof(argv[10]); // 0.6 (original)
+  float min_inlier_ratio_bad = atof(argv[11]); // 0.45 (original)
   float prev_variance_factor = atof(argv[12]); // 1.0f (original)
-  float variance_offset = atof(argv[13]); // 0.0f (original)
+  float new_variance_factor = atof(argv[13]); // 1.0f (original)
+  float variance_offset = atof(argv[14]); // 0.0f (original)
+  float minDepth = atof(argv[15]);
+  float maxDepth = atof(argv[16]);
+  bool inverse_depth = atoi(argv[17]);
 
   // Read intrinsics
   std::ifstream intrinFile(intrinsicsPath);
@@ -242,7 +241,7 @@ int main(int argc, char **argv)
 
   std::shared_ptr<quadmap::Depthmap> depthmap_ = std::make_shared<quadmap::Depthmap>(width, height, cost_downsampling,
           fx, cx, fy, cy, undist_map1, undist_map2, semi2dense_ratio, doBeliefPropagation, useQuadtree, doFusion,
-          doGlobalUpsampling, fixNearPoint, printTimings, P1, P2, new_keyframe_max_angle, new_keyframe_max_distance, new_reference_max_angle,
+          doGlobalUpsampling, fixNearPoint, printTimings, P1, P2, inverse_depth, minDepth, maxDepth, new_keyframe_max_angle, new_keyframe_max_distance, new_reference_max_angle,
           new_reference_max_distance, min_inlier_ratio_good, min_inlier_ratio_bad, new_variance_factor, prev_variance_factor, variance_offset);
 
   // Run

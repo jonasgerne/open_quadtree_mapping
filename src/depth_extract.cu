@@ -3,10 +3,16 @@
 namespace quadmap
 {
 __global__ void prior_to_cost(
+	bool inverse_depth,
+	float min_depth,
+	float step_depth,
 	DeviceImage<float2> *depth_prior_devptr,
 	DeviceImage<PIXEL_COST> *cost_devptr,
 	DeviceImage<int> *num_devptr);
 __global__ void image_to_cost(
+	bool inverse_depth,
+	float min_depth,
+	float step_depth,
 	MatchParameter *match_parameter_devptr,
 	DeviceImage<int> *age_table_devptr,
 	DeviceImage<PIXEL_COST> *cost_devptr,
@@ -19,6 +25,9 @@ __global__ void upsample_naive(
 	DeviceImage<float> *full_dense_devptr);
 
 __global__ void prior_to_cost(
+	bool inverse_depth,
+    float min_depth,
+	float step_depth,
 	DeviceImage<float2> *depth_prior_devptr,
 	DeviceImage<PIXEL_COST> *cost_devptr,
 	DeviceImage<int> *num_devptr)
@@ -36,7 +45,11 @@ __global__ void prior_to_cost(
 	if(prior.x <= 0 || prior.y <= 0)
 		return;
 
-	const float my_invdepth = STEP_INV_DEPTH * depth_id + MIN_INV_DEPTH;
+	float my_invdepth;
+	if (inverse_depth)
+		my_invdepth = (step_depth * depth_id + min_depth);
+	else
+		my_invdepth = 1.0 / (step_depth * depth_id + min_depth);
 	float cost = PRIOR_COST_SCALE * (my_invdepth-prior.x) * (my_invdepth-prior.x) / prior.y;
 	// float cost = PRIOR_COST_SCALE * (my_depth-prior.x) * (my_depth-prior.x);
 	cost = cost < TRUNCATE_COST ? cost : TRUNCATE_COST;
@@ -131,6 +144,9 @@ __global__ void prior_to_cost(
 // }
 
 __global__ void image_to_cost(
+	bool inverse_depth,
+	float min_depth,
+	float step_depth,
 	MatchParameter *match_parameter_devptr,
 	DeviceImage<int> *age_table_devptr,
 	DeviceImage<PIXEL_COST> *cost_devptr,
@@ -188,11 +204,13 @@ __global__ void image_to_cost(
 	//calculate
 	const SE3<float> income_to_ref = my_reference.transform;
 	float3 my_dir = normalize(camera.cam2world(make_float2(x, y)));
-#ifdef USE_INVERSE_DEPTH
-	float my_depth = 1.0 / (STEP_INV_DEPTH * depth_id + MIN_INV_DEPTH);
-#else
-    float my_depth = (STEP_DEPTH * depth_id + MIN_DEP);
-#endif
+
+	float my_depth;
+	if (inverse_depth)
+		my_depth = 1.0 / (step_depth * depth_id + min_depth);
+	else
+    	my_depth = (step_depth * depth_id + min_depth);
+
 	float2 project_point = camera.world2cam(income_to_ref*(my_dir*my_depth));
 	int point_x = project_point.x + 0.5;
 	int point_y = project_point.y + 0.5;
@@ -266,9 +284,12 @@ __global__ void normalize_the_cost(
 }
 
 __global__ void naive_extract(
+	float cost_downsampling,
+	bool inverse_depth,
+	float min_depth,
+	float step_depth,
 	DeviceImage<PIXEL_COST> *cost_devptr,
-	DeviceImage<float> *coarse_depth_devptr,
-    const float cost_downsampling)
+	DeviceImage<float> *coarse_depth_devptr)
 {
 	const int x = blockIdx.x;
 	const int y = blockIdx.y;
@@ -308,11 +329,10 @@ __global__ void naive_extract(
 			float b = - cost_pre + cost_post;
 			disparity = (float) min_id[0] - b / (2.0f * a);
 		}
-#ifdef USE_INVERSE_DEPTH
-		coarse_depth_devptr->atXY(x * cost_downsampling, y * cost_downsampling) = 1.0 / (STEP_INV_DEPTH * disparity + MIN_INV_DEPTH);
-#else
-        coarse_depth_devptr->atXY(x * cost_downsampling, y * cost_downsampling) = (STEP_DEPTH * disparity + MIN_DEP);
-#endif
+		if (inverse_depth)
+			coarse_depth_devptr->atXY(x * cost_downsampling, y * cost_downsampling) = 1.0 / (step_depth * disparity + min_depth);
+		else
+			coarse_depth_devptr->atXY(x * cost_downsampling, y * cost_downsampling) = (step_depth * disparity + min_depth);
 	}
 }
 

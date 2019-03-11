@@ -365,7 +365,9 @@ __global__ void regulizeDepth_FillHoles_kernel(DeviceImage<DepthSeed> *keyframe_
 	}
 }
 
-__global__ void update_keyframe_kernel(DeviceImage<DepthSeed> *keyframe_devptr, float4 camera_para, SE3<float> key_to_income, DeviceImage<float> *debug_devptr, DeviceImage<float4> *epipolar_devptr, bool fixNearPoint)
+__global__ void update_keyframe_kernel(DeviceImage<DepthSeed> *keyframe_devptr, float4 camera_para, SE3<float> key_to_income,
+		DeviceImage<float> *debug_devptr, DeviceImage<float4> *epipolar_devptr, float min_inverse_depth, float max_inverse_depth,
+		bool fixNearPoint)
 {
 	const int x = threadIdx.x + blockIdx.x * blockDim.x;
 	const int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -420,14 +422,14 @@ __global__ void update_keyframe_kernel(DeviceImage<DepthSeed> *keyframe_devptr, 
 	}
 
 	float search_error, result_idep, result_var, result_eplength;
-	float search_min_idep = MIN_INV_DEPTH;
-	float search_max_idep = MAX_INV_DEPTH;
+	float search_min_idep = min_inverse_depth;
+	float search_max_idep = max_inverse_depth;
 	/*if(!first_observe)
 	{
 		search_min_idep = depthseed.smooth_idepth() - 2.0 * sqrtf(depthseed.smooth_variance());
 		search_max_idep = depthseed.smooth_idepth() + 2.0 * sqrtf(depthseed.smooth_variance());
-		search_min_idep = search_min_idep < MIN_INV_DEPTH ? MIN_INV_DEPTH : search_min_idep;
-		search_max_idep = search_max_idep > MAX_INV_DEPTH ? MAX_INV_DEPTH : search_max_idep;
+		search_min_idep = search_min_idep < min_inverse_depth ? min_inverse_depth : search_min_idep;
+		search_max_idep = search_max_idep > max_inverse_depth ? max_inverse_depth : search_max_idep;
 	}*/
 
 	search_error = search_point(
@@ -736,8 +738,8 @@ float search_point(
 		alpha = (KRKiP.z*KT.y - KT.z*KRKiP.y) / ((KT.y - best_v*KT.z) * (KT.y - best_v*KT.z));
 	}
 
-	best_idepth = best_idepth < MIN_INV_DEPTH ? MIN_INV_DEPTH : best_idepth;
-	best_idepth = best_idepth > MAX_INV_DEPTH ? MAX_INV_DEPTH : best_idepth;
+	best_idepth = best_idepth < min_idep ? min_idep : best_idepth;
+	best_idepth = best_idepth > max_idep ? max_idep : best_idepth;
 
 	// ================= calc var (in NEW image) ====================
 	float photoDispError = 4.0f * 4.0f / my_gradient / my_gradient;
