@@ -85,7 +85,7 @@ if(WITH_ROS)
 endif()
 
 add_executable(open_quadtree_mapping_standalone src/main_standalone.cpp)
-target_link_libraries(open_quadtree_mapping_standalone open_quadtree_mapping_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${Boost_LIBRARIES})
+target_link_libraries(open_quadtree_mapping_standalone open_quadtree_mapping_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${Boost_LIBRARIES} X11)
 
 # Python module
 include_directories( ${EIGEN3_INCLUDE_DIRS} )

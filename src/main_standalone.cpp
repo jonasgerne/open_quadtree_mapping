@@ -21,98 +21,13 @@
 #include <quadmap/depthmap.h>
 #include <quadmap/se3.cuh>
 
+#define cimg_plugin1 "cvMat.h"
+#include "CImg.h"
+
 void display(std::string&& name, cv::Mat& image) {
     cv::namedWindow(name.c_str(), cv::WINDOW_NORMAL);
     cv::resizeWindow(name.c_str(), image.cols, image.rows);
     cv::imshow(name.c_str(), image);
-}
-
-/**
- * Saves the image as a PFM file.
- * @brief savePFM
- * @param image
- * @param filePath
- * @return
- */
-bool savePFM(const cv::Mat image, const std::string filePath)
-{
-    //Open the file as binary!
-    std::ofstream imageFile(filePath.c_str(), std::ios::out | std::ios::trunc | std::ios::binary);
-
-    if(imageFile)
-    {
-        int width(image.cols), height(image.rows);
-        int numberOfComponents(image.channels());
-
-        //Write the type of the PFM file and ends by a line return
-        char type[3];
-        type[0] = 'P';
-        type[2] = 0x0a;
-
-        if(numberOfComponents == 3)
-        {
-            type[1] = 'F';
-        }
-        else if(numberOfComponents == 1)
-        {
-            type[1] = 'f';
-        }
-
-        imageFile << type[0] << type[1] << type[2];
-
-        //Write the width and height and ends by a line return
-        imageFile << width << " " << height << type[2];
-
-        //Assumes little endian storage and ends with a line return 0x0a
-        //Stores the type
-        char byteOrder[10];
-        byteOrder[0] = '-'; byteOrder[1] = '1'; byteOrder[2] = '.'; byteOrder[3] = '0';
-        byteOrder[4] = '0'; byteOrder[5] = '0'; byteOrder[6] = '0'; byteOrder[7] = '0';
-        byteOrder[8] = '0'; byteOrder[9] = 0x0a;
-
-        for(int i = 0 ; i<10 ; ++i)
-        {
-            imageFile << byteOrder[i];
-        }
-
-        //Store the floating points RGB color upside down, left to right
-        float* buffer = new float[numberOfComponents];
-
-        for(int i = 0 ; i<height ; ++i)
-        {
-            for(int j = 0 ; j<width ; ++j)
-            {
-                if(numberOfComponents == 1)
-                {
-                    buffer[0] = image.at<float>(height-1-i,j);
-                }
-                else
-                {
-                    cv::Vec3f color = image.at<cv::Vec3f>(height-1-i,j);
-
-                    //OpenCV stores as BGR
-                    buffer[0] = color.val[2];
-                    buffer[1] = color.val[1];
-                    buffer[2] = color.val[0];
-                }
-
-                //Write the values
-                imageFile.write((char *) buffer, numberOfComponents*sizeof(float));
-
-            }
-        }
-
-        delete[] buffer;
-
-        imageFile.close();
-    }
-    else
-    {
-        std::cerr << "Could not open the file : " << filePath << std::endl;
-        return false;
-    }
-
-    return true;
 }
 
 int main(int argc, char **argv)
@@ -270,7 +185,9 @@ int main(int argc, char **argv)
           cv::Mat depthmap_mat = depthmap_->getDepthmap();
           cv::minMaxIdx(depthmap_mat, &minVal, &maxVal);
           sprintf(buffer, "%010d.pfm", idx);
-          savePFM(depthmap_mat, buffer);
+          cimg_library::CImg<float> depth(depthmap_mat);
+          depth.save(buffer);
+
           cv::minMaxIdx(depthmap_mat, &minVal, &maxVal);
           
           cv::Mat depthNorm, depthColor;
