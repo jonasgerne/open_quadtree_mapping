@@ -251,7 +251,7 @@ __global__ void bp(
             return;
     }
 
-    // Alternate between even and odd pixels in x direction
+    // Alternate between pixels in checkerboard pattern
     if(A_set)
         x = x * 2 + y % 2;
     else
@@ -312,7 +312,7 @@ __global__ void bp(
 
     // find min cost for every message using SGM penalties
     float min_cost = neighbor_cost[dir][depth_id];
-    // Add terms for previous/next depth step, if cost difference than threshold P1 then take that cost
+    // Add terms for previous/next depth step, if cost difference smaller than threshold P1 then take that cost
     if(depth_id > 0)
         min_cost = fminf(min_cost, neighbor_cost[dir][depth_id - 1] + P1);
     if(depth_id < DEPTH_NUM - 1)
@@ -320,10 +320,11 @@ __global__ void bp(
     // Minimum cost over all possible depth if difference with minimum cost smaller than threshld P2 take that cost
     min_cost = fminf(min_cost, neighbor_cost_min[dir][0] + P2);
 
+    // Compute mean cost
     raw_cost[dir][depth_id] = min_cost;
     __syncthreads();
 
-    // Find new min cost
+    // Reduce sum
     for(int i = DEPTH_NUM / 2; i > 0; i = i / 2)
     {
         if(depth_id < i)
@@ -333,8 +334,11 @@ __global__ void bp(
         __syncthreads();
     }
 
-    // Normalize min cost by subtracting min cost divided by num depths
+    // Normalize min cost by subtracting mean cost
     min_cost = min_cost - raw_cost[dir][0] / (float) DEPTH_NUM;
+
+    if((x == 525) && (y == 25) && (dir == 0))
+        printf("%d: min cost %f\n", depth_id, min_cost);
 
     // Copy final message for direction
     if(dir == 0) //up
@@ -411,7 +415,7 @@ __global__ void depth_extract(
             float a = cost_pre - 2.0f * min_cost[0] + cost_post;
             float b = - cost_pre + cost_post;
             float b_a = b/a;
-            if(isfinite(b_a))
+            if (a > 0.0f)
 	            disparity = (float) min_id[0] - b_a / 2.0f;
             //disparity = (float)min_id[0] - b / (2.0f * a);
         }

@@ -116,7 +116,7 @@ quadmap::SeedMatrix::SeedMatrix(
   printf("Depth Range\n");
   for(int i = 0; i < DEPTH_NUM; i++) {
     if(inverse_depth)
-      printf("%f ", 1.0 / (step_depth * i + min_depth));
+      printf("%f ", 1.0f / (step_depth * i + 1.0f / max_depth));
     else
       printf("%f ", (step_depth * i + min_depth));
   }
@@ -220,11 +220,12 @@ bool quadmap::SeedMatrix::add_frames(
     // Random depth initialization
     initial_keyframe();
     initialized = true;
-    return true;
+    return false;
   }
 
   // Epipolar depth search and update
-  // Project depth from keyframe to frame
+  // Depthmap filtering
+  // Project semi-dense depth from keyframe to frame
   update_keyframe();
 
   if(need_switchkeyframe())
@@ -239,6 +240,20 @@ bool quadmap::SeedMatrix::add_frames(
     create_new_keyframe();
     set_income_as_keyframe();
   }
+  else {
+    if(doFusion){
+      // Projected fused keyframe depth to current frame
+    }
+    else {
+      // Project keyframe depth to current frame
+    }
+
+    // If min baseline and angle add the current frame into framelist for mvs
+    if(need_add_reference())
+      add_reference();
+
+    return false;
+  }
 
 #ifdef DEBUG_PRINT
   printf("till all semidense cost %f ms \n", ( std::clock() - start ) / (double) CLOCKS_PER_SEC * 1000); start = std::clock();
@@ -246,6 +261,10 @@ bool quadmap::SeedMatrix::add_frames(
 
   // If not a dense frame, return update with semidense depth
   if (frame_index % semi2dense_ratio != 0) {
+      // If min baseline and angle add the current frame into framelist for mvs
+      if(need_add_reference())
+        add_reference();
+
       return false;
       //download_output();
       //return true;
@@ -293,7 +312,7 @@ bool quadmap::SeedMatrix::need_add_reference()
   float3 income_z = make_float3(income_pose.data(0,2),income_pose.data(1,2),income_pose.data(2,2));
   float z_cos = dot(last_z, income_z);
   float base_line = length(lastframe_pose.getTranslation()-income_pose.getTranslation());
-  return (z_cos < new_reference_max_angle || base_line > new_reference_max_distance);
+  return (z_cos <= new_reference_max_angle || base_line >= new_reference_max_distance);
 }
 
 void quadmap::SeedMatrix::add_reference()
@@ -320,7 +339,7 @@ bool quadmap::SeedMatrix::need_switchkeyframe()
   float3 income_z = make_float3(income_pose.data(0,2),income_pose.data(1,2),income_pose.data(2,2));
   float z_cos = dot(keyframe_z, income_z);
   float base_line = length(keyframe_pose.getTranslation()-income_pose.getTranslation());
-  return (z_cos < new_keyframe_max_angle || base_line > new_keyframe_max_distance);
+  return (z_cos <= new_keyframe_max_angle || base_line >= new_keyframe_max_distance);
 }
 
 void quadmap::SeedMatrix::initial_keyframe()
@@ -788,6 +807,7 @@ void quadmap::SeedMatrix::fuse_output_depth()
   // cudaDeviceSynchronize();
 
   // Transform depth from last depth map to new frame
+  // Project onto the same image??
   SE3<float> last_to_income = income_transform * this_fuse_worldpose.inv();
   fuse_transform<<<image_grid, image_block>>>(depth_fuse_seeds.dev_ptr, transform_table.dev_ptr, last_to_income,
           camera, min_inlier_ratio_bad, inverse_depth ? 1.0f/max_depth : min_depth);

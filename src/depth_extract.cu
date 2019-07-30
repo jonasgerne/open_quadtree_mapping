@@ -165,17 +165,17 @@ __global__ void image_to_cost(
 	const int my_quadsize = 1 << tex2D(quadtree_tex, x, y);
 
     // Check out of bounds
-	if (x >= width -1 || y >= height - 1 || x <= 0 || y <= 0)
+	if (x >= width - 1 || y >= height - 1 || x <= 0 || y <= 0)
 		return;
 
 	// Skip if not selected by quadtree
     if (((x % my_quadsize) != 0) || ((y % my_quadsize) != 0))
         return;
 
-	int this_age = age_table_devptr->atXY(x,y);
-
-	if(this_age >= frame_num)
-		this_age = frame_num - 1;
+//	int this_age = age_table_devptr->atXY(x,y);
+//
+//	if(this_age >= frame_num)
+//		this_age = frame_num - 1;
 
 	// Age table not maintained so always zero
 	/*if(this_age < KEYFRAME_NUM)
@@ -233,11 +233,15 @@ __global__ void image_to_cost(
 				my_cost += fabs(my_patch[i+1][j+1] - my_reference.frame_ptr->atXY(check_x, check_y));
 			}
 		}
+
 		cost[depth_id * frame_num + frame_id] = my_cost;
 		aggregate_num[depth_id * frame_num + frame_id] = 1;
 	}
 	else
 	{
+		// If not within bounds set cost to zero
+//		if((x == 321) && (y == 10))
+//			printf("Cost 321/10/%d: Out of bounds\n", depth_id);
 		cost[depth_id * frame_num + frame_id] = 0;
 		aggregate_num[depth_id * frame_num + frame_id] = 0;
 	}
@@ -265,6 +269,9 @@ __global__ void image_to_cost(
         // Write cost and counter
 		atomicAdd(cost_devptr->atXY(x / cost_downsampling,y / cost_downsampling).cost_ptr(depth_id), my_depth_cost);
 		atomicAdd(num_devptr->ptr_atXY(x / cost_downsampling, y / cost_downsampling), 1);
+
+//		if((x == 321) && ( y == 10))
+//			printf("Cost 321/10/%d: Cost %f | Count %d\n", depth_id, my_depth_cost, num_devptr->atXY(x / cost_downsampling, y / cost_downsampling));
 	}
 }
 
@@ -276,11 +283,14 @@ __global__ void normalize_the_cost(
 	const int y = blockIdx.y;
 	const int depth_id = threadIdx.x;
 	const int add_num = num_devptr->atXY(x,y);
-	if(add_num<=0)
+	if (add_num<=0)
 		return;
 	float mycost = cost_devptr->atXY(x,y).get_cost(depth_id);
 	mycost /= (float)add_num;
 	cost_devptr->atXY(x,y).set_cost(depth_id, mycost);
+
+//	if((x == 321) && ( y == 10))
+//		printf("Norm 321/10/%d: Cost %f\n", depth_id, mycost);
 }
 
 __global__ void naive_extract(
@@ -315,19 +325,20 @@ __global__ void naive_extract(
 	}
 
     // Reduce min index
-	if(depth_id == 0)
+	if (depth_id == 0)
 	{
-		float disparity;
-		if(min_id[0] == 0 || min_id[0] == DEPTH_NUM - 1)
-			disparity = min_id[0];
-		else
+		float disparity = min_id[0];
+		if(min_id[0] > 0 && min_id[0] < DEPTH_NUM - 1)
 		{
-            // Interpolate
+			// Interpolate disparity between neigbouring costs
 			float cost_pre = cost[min_id[0] - 1];
 			float cost_post = cost[min_id[0] + 1];
 			float a = cost_pre - 2.0f * min_cost[0] + cost_post;
 			float b = - cost_pre + cost_post;
-			disparity = (float) min_id[0] - b / (2.0f * a);
+			float b_a = b/a;
+			if (a > 0.0f)
+				disparity = (float) min_id[0] - b_a / 2.0f;
+			//disparity = (float)min_id[0] - b / (2.0f * a);
 		}
 		if (inverse_depth)
 			coarse_depth_devptr->atXY(x * cost_downsampling, y * cost_downsampling) = 1.0 / (step_depth * disparity + min_depth);

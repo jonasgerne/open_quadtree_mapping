@@ -3,9 +3,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8.3)
 PROJECT(${PROJECT_NAME})
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/CMakeModules/")
 
-option(WITH_ROS "Compile with ROS wrapper" True)
-
-SET(CMAKE_BUILD_TYPE Release) # Release, RelWithDebInfo
+option(WITH_ROS "Compile with ROS wrapper" False)
 
 enable_language(CUDA)
 include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})

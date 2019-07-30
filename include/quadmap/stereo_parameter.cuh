@@ -45,5 +45,7 @@
 
 //for depth upsample
 #define use_fabs_distence false
-#define upsample_sigma 400.0
+//#define upsample_sigma 400.0
+// 0.07 * 0.07 (from paper)
+#define upsample_sigma 0.0049f
 #define upsample_lambda 10.0

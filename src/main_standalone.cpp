@@ -47,11 +47,6 @@ int main(int argc, char **argv)
   float P1 = 0.003f; // 0.003 (original)
   float P2 = 0.01f; // 0.01 (original)
 
-  float new_keyframe_max_angle = 0.86f;
-  float new_keyframe_max_distance =  0.5f;
-  float new_reference_max_angle = 0.95f;
-  float new_reference_max_distance = 0.03;
-
   // Distortion coefficients
   float k1 = 0.0f;
   float k2 = 0.0f;
@@ -59,6 +54,10 @@ int main(int argc, char **argv)
   float r2 = 0.0f;
 
   // Arguments
+  if(argc < 20){
+      printf("Not enough parameters specified!\n");
+      return -1;
+  }
   std::string intrinsicsPath = argv[1];
   std::string posesPath = argv[2];
   std::string rgbPattern = argv[3];
@@ -76,9 +75,18 @@ int main(int argc, char **argv)
   float minDepth = atof(argv[15]);
   float maxDepth = atof(argv[16]);
   bool inverse_depth = atoi(argv[17]);
+  float new_keyframe_max_distance = atof(argv[18]);
+  float new_keyframe_max_angle = cos(atof(argv[19]) / 180.0f * M_PI);
+
+  float new_reference_max_distance = new_keyframe_max_distance; // 0.03; (original)
+  float new_reference_max_angle = new_keyframe_max_angle; // 0.95f; (original)
 
   // Read intrinsics
   std::ifstream intrinFile(intrinsicsPath);
+  if(!intrinFile.good()){
+      printf("Could not open intrinsics file %s\n", intrinsicsPath.c_str());
+      return -1;
+  }
   Eigen::Matrix<float, 3, 3, Eigen::RowMajor> intrinsics;
   std::string line;
   while (std::getline(intrinFile, line))
@@ -100,6 +108,10 @@ int main(int argc, char **argv)
 
   // Read poses
   std::ifstream posesFile(posesPath);
+  if(!posesFile.good()){
+      printf("Could not open poses file %s\n", posesPath.c_str());
+      return -1;
+  }
   std::vector<Eigen::Matrix<float, 4, 4, Eigen::RowMajor> > poses;
 
   Eigen::Matrix<float, 4, 4, Eigen::RowMajor> firstPoseInv;
@@ -201,6 +213,11 @@ int main(int argc, char **argv)
           cv::applyColorMap(depthNorm, depthColor, cv::COLORMAP_JET);
           for (int i = 0; i < depthmap_mat.rows; i++) {
               for (int j = 0; j < depthmap_mat.cols; j++) {
+                  if (std::isnan(depthmap_mat.at<float>(i, j))) {
+                      depthColor.at<cv::Vec3b>(i, j)[0] = 0;
+                      depthColor.at<cv::Vec3b>(i, j)[1] = 0;
+                      depthColor.at<cv::Vec3b>(i, j)[2] = 0;
+                  }
                   if (depthmap_mat.at<float>(i, j) < minDepth) {
                       depthColor.at<cv::Vec3b>(i, j)[0] = 0;
                       depthColor.at<cv::Vec3b>(i, j)[1] = 0;
