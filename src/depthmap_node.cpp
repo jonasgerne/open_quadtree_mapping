@@ -27,11 +27,12 @@
 #include <string>
 #include <future>
 
+
 using namespace std;
 
 quadmap::DepthmapNode::DepthmapNode(ros::NodeHandle &nh)
   : nh_(nh)
-  , num_msgs_(0){}
+  , num_msgs_(0) {}
 
 bool quadmap::DepthmapNode::init()
 {
@@ -108,7 +109,7 @@ void quadmap::DepthmapNode::Msg_Callback(
 {
   printf("\n\n\n");
   num_msgs_ += 1;
-  curret_msg_time = image_input->header.stamp;
+  current_msg_time = image_input->header.stamp;
   if(!depthmap_)
   {
     ROS_ERROR("depthmap not initialized. Call the DepthmapNode::init() method");
@@ -140,11 +141,67 @@ void quadmap::DepthmapNode::Msg_Callback(
     denoiseAndPublishResults();
 }
 
+void quadmap::DepthmapNode::imageCb(const sensor_msgs::ImageConstPtr &image_input){
+
+    printf("\n\n\n");
+    num_msgs_ += 1;
+    current_msg_time = image_input->header.stamp;
+    if(!depthmap_)
+    {
+        ROS_ERROR("depthmap not initialized. Call the DepthmapNode::init() method");
+        return;
+    }
+    cv::Mat img_8uC1;
+    try
+    {
+        cv_bridge::CvImageConstPtr cv_img_ptr =
+                cv_bridge::toCvShare(image_input, sensor_msgs::image_encodings::MONO8);
+        img_8uC1 = cv_img_ptr->image;
+    }
+    catch (cv_bridge::Exception& e)
+    {
+        ROS_ERROR("cv_bridge exception: %s", e.what());
+    }
+
+    tf::StampedTransform transform;
+    try {
+        ros::Duration timeout(1.0 / 30);
+        tf_listener_.waitForTransform("world", tf_goal_frame_,
+                                      current_msg_time, timeout);
+        tf_listener_.lookupTransform("world", tf_goal_frame_,
+                                     current_msg_time, transform);
+    }
+    catch (const tf::TransformException& ex) {
+        ROS_WARN("[draw_frames] TF exception:\n%s", ex.what());
+        return;
+    }
+
+    tf::Point pt = transform.getOrigin();
+    tf::Quaternion rot = transform.getRotation();
+    quadmap::SE3<float> T_world_curr(
+            rot.w(),
+            rot.x(),
+            rot.y(),
+            rot.z(),
+            pt.x(),
+            pt.y(),
+            pt.z());
+
+    bool has_result;
+    has_result = depthmap_->add_frames(img_8uC1, T_world_curr.inv());
+    if(has_result)
+        denoiseAndPublishResults();
+}
+
 
 void quadmap::DepthmapNode::denoiseAndPublishResults()
 {
   std::async(std::launch::async,
              &quadmap::Publisher::publishDepthmapAndPointCloud,
              *publisher_,
-             curret_msg_time);
+             current_msg_time);
+}
+
+void quadmap::DepthmapNode::setFrameName(const std::string &frame_name) {
+    tf_goal_frame_ = frame_name;
 }
