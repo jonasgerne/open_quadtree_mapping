@@ -24,32 +24,36 @@
 #include <ros/ros.h>
 #include <tf/transform_listener.h>
 
-namespace quadmap
-{
+namespace quadmap {
 
-class DepthmapNode
-{
-public:
-  DepthmapNode(ros::NodeHandle &nh);
-  bool init();
-  void Msg_Callback(
-    const sensor_msgs::ImageConstPtr &image_input,
-    const geometry_msgs::PoseStampedConstPtr &pose_input);
-  void imageCb(const sensor_msgs::ImageConstPtr &image_input);
-  void setFrameName(const std::string &frame_name);
-private:
-  void denoiseAndPublishResults();
-  void publishConvergenceMap();
+    class DepthmapNode {
+    public:
+        DepthmapNode(ros::NodeHandle &nh);
 
+        bool init();
 
-private:
-    std::shared_ptr<quadmap::Depthmap> depthmap_;
-  int num_msgs_;
-  ros::Time current_msg_time;
-  ros::NodeHandle &nh_;
-  std::unique_ptr<quadmap::Publisher> publisher_;
-  tf::TransformListener tf_listener_;
-  std::string tf_goal_frame_;
-};
+        void Msg_Callback(
+                const sensor_msgs::ImageConstPtr &image_input,
+                const geometry_msgs::PoseStampedConstPtr &pose_input);
+
+        void imageCb(const sensor_msgs::ImageConstPtr &image_input);
+
+        void setFrameName(const std::string &frame_name);
+
+        const std::string &getFrameName() const;
+
+    private:
+        void denoiseAndPublishResults();
+
+        void publishConvergenceMap();
+
+        std::shared_ptr<quadmap::Depthmap> depthmap_;
+        int num_msgs_;
+        ros::Time current_msg_time;
+        ros::NodeHandle &nh_;
+        std::unique_ptr<quadmap::Publisher> publisher_;
+        tf::TransformListener tf_listener_;
+        std::string tf_goal_frame_;
+    };
 
 }

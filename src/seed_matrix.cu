@@ -148,7 +148,7 @@ bool quadmap::SeedMatrix::add_frames(
 
   //for full dense
   bool has_depth_output = false;
-  if(framelist_host.size() > 10)
+  if(framelist_host.size() > KEYFRAME_NUM-3)
   {
     extract_depth();
     has_depth_output = true;
@@ -461,6 +461,7 @@ void quadmap::SeedMatrix::extract_depth()
     gpu_ele.frame_ptr = this_ele.frame_ptr->dev_ptr;
     gpu_ele.transform = this_ele.transform * income_transform.inv();
     match_parameter.framelist_dev[i] = gpu_ele;
+    printf("   transform: %lf %lf %lf\n", gpu_ele.transform(0,3), gpu_ele.transform(1,3), gpu_ele.transform(2,3));
   }
   match_parameter.current_frames = framelist_host.size();
   match_parameter.setDevData();

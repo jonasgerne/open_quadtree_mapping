@@ -28,39 +28,45 @@
 
 typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, geometry_msgs::PoseStamped> exact_policy;
 
-int main(int argc, char **argv)
-{
-  if(!quadmap::checkCudaDevice(argc, argv))
-    return EXIT_FAILURE;
+int main(int argc, char **argv) {
+    if (!quadmap::checkCudaDevice(argc, argv))
+        return EXIT_FAILURE;
 
-  ros::init(argc, argv, "hybrid_mapping");
-  ros::NodeHandle nh("~");
-  quadmap::DepthmapNode dm_node(nh);
-  bool use_tf_transforms_;
-  if(!dm_node.init())
-  {
-    ROS_ERROR("could not initialize DepthmapNode. Shutting down node...");
-    return EXIT_FAILURE;
-  }
+    ros::init(argc, argv, "hybrid_mapping");
+    ros::NodeHandle nh("~");
+    image_transport::ImageTransport it_(nh);
+    quadmap::DepthmapNode dm_node(nh);
+    image_transport::Subscriber sub_;
+    message_filters::Synchronizer<exact_policy> sync_(exact_policy(1000));
+    message_filters::Subscriber<sensor_msgs::Image> image_sub_;
+    message_filters::Subscriber<geometry_msgs::PoseStamped> pose_sub_;
+    bool use_tf_transforms_;
 
-  nh.param("use_tf_transforms", use_tf_transforms_, false);
-  if (!use_tf_transforms_) {
-      message_filters::Subscriber<sensor_msgs::Image> image_sub(nh, "image", 1000);
-      message_filters::Subscriber<geometry_msgs::PoseStamped> pose_sub(nh, "posestamped", 1000);
-      message_filters::Synchronizer<exact_policy> sync(exact_policy(1000), image_sub, pose_sub);
-      sync.registerCallback(boost::bind(&quadmap::DepthmapNode::Msg_Callback, &dm_node, _1, _2));
-  } else {
-      std::string image_topic = nh.resolveName("image");
-      std::string cam_info_topic = ros::names::parentNamespace(image_topic) + "/camera_info";
-      boost::shared_ptr<const sensor_msgs::CameraInfo> cam_info_ptr = ros::topic::waitForMessage<sensor_msgs::CameraInfo>(cam_info_topic, nh, ros::Duration(3));
-      dm_node.setFrameName(cam_info_ptr->header.frame_id);
-      image_transport::ImageTransport it_(nh);
-      it_.subscribe(image_topic, 1, &quadmap::DepthmapNode::imageCb);
-  }
-  while(ros::ok())
-  {
-    ros::spinOnce();
-  }
+    if (!dm_node.init()) {
+        ROS_ERROR("could not initialize DepthmapNode. Shutting down node...");
+        return EXIT_FAILURE;
+    }
+    ROS_INFO("Init ok.");
 
-  return EXIT_SUCCESS;
+    nh.param("use_tf_transforms", use_tf_transforms_, false);
+    if (!use_tf_transforms_) {
+        image_sub_.subscribe(nh, "image", 1000);
+        pose_sub_.subscribe(nh, "posestamped", 1000);
+        sync_.connectInput(image_sub_, pose_sub_);
+        sync_.registerCallback(boost::bind(&quadmap::DepthmapNode::Msg_Callback, &dm_node, _1, _2));
+    } else {
+        std::string image_topic = nh.resolveName("image");
+        std::string cam_info_topic = ros::names::parentNamespace(image_topic) + "/camera_info";
+        boost::shared_ptr<const sensor_msgs::CameraInfo> cam_info_ptr = ros::topic::waitForMessage<sensor_msgs::CameraInfo>(
+                cam_info_topic, nh, ros::Duration(3));
+        dm_node.setFrameName(cam_info_ptr->header.frame_id);
+        sub_ = it_.subscribe(image_topic, 10, &quadmap::DepthmapNode::imageCb, &dm_node);
+        ROS_INFO("Topic: %s, NumPub: %d, Transport: %s", sub_.getTopic().c_str(), sub_.getNumPublishers(),
+                 sub_.getTransport().c_str());
+    }
+
+    while (ros::ok()) {
+        ros::spinOnce();
+    }
+    return EXIT_SUCCESS;
 }
