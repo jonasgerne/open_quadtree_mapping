@@ -1,10 +1,17 @@
 // search range
-#define MAX_DEP 100
-#define MIN_DEP 0.5
+//#define USE_INVERSE_DEPTH
+
+// Original
+//#define MAX_DEP 100.0
+// Adjusted
+//#define MAX_DEP 10.0
+//#define MIN_DEP 0.5
 #define MIN_GRAIDIENT 5
-#define MIN_INV_DEPTH 0.01
-#define MAX_INV_DEPTH 2.0
-#define STEP_INV_DEPTH (MAX_INV_DEPTH-MIN_INV_DEPTH)/63.0
+//#define MIN_INV_DEPTH 1.0/MAX_DEP
+//#define MAX_INV_DEPTH 1.0/MIN_DEP
+//#define STEP_INV_DEPTH (MAX_INV_DEPTH-MIN_INV_DEPTH)/63.0
+////#define STEP_DEPTH (MAX_DEP-MIN_DEP)/63.0
+//#define STEP_DEPTH (MAX_DEP-MIN_DEP)/62.0
 #define IDEPTH_INITIAL 1.0
 #define VARIANCE_MAX 4.0
 
@@ -34,9 +41,11 @@
 #define PRIOR_COST_SCALE 0.1
 #define TRUNCATE_COST 0.5
 
-#define update_debug false
+#define update_debug true
 
 //for depth upsample
 #define use_fabs_distence false
-#define upsample_sigma 400.0
+//#define upsample_sigma 400.0
+// 0.07 * 0.07 (from paper)
+#define upsample_sigma 0.0049f
 #define upsample_lambda 10.0

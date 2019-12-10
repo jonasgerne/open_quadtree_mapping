@@ -1,31 +1,11 @@
-// #pragma once
-#include <vector>
-#include <vector_types.h>
-#include <cuda_toolkit/helper_math.h>
-#include <quadmap/device_image.cuh>
-#include <quadmap/texture_memory.cuh>
-#include <quadmap/match_parameter.cuh>
-#include <quadmap/camera_model/pinhole_camera.cuh>
+#include <quadmap/depth_fusion.cuh>
+
+#ifndef M_PI
+#define M_PI       3.14159265358979323846   // pi
+#endif
 
 namespace quadmap
 {
-
-#define initial_a 10
-#define initial_b 10
-#define initial_variance 2500
-
-__device__ __forceinline__ float normpdf(const float &x, const float &mu, const float &sigma_sq)
-{
-  return (expf(-(x-mu)*(x-mu) / (2.0f*sigma_sq))) * rsqrtf(2.0f*M_PI*sigma_sq);
-}
-__device__ __forceinline__ bool is_goodpoint(const float4 &point_info)
-{
-  return (point_info.x /(point_info.x + point_info.y) > 0.60);
-}
-__device__ __forceinline__ bool is_badpoint(const float4 &point_info)
-{
-  return (point_info.x < 0.001) || (point_info.x /(point_info.x + point_info.y) < 0.45);
-}
 
 __global__ void high_gradient_filter
 (DeviceImage<float> *depth_output_devptr,
@@ -49,7 +29,9 @@ __global__ void fuse_transform(
   DeviceImage<float4> *pre_seeds_devptr,
   DeviceImage<int> *transform_table_devptr,
   SE3<float> last_to_cur,
-  PinholeCamera camera)
+  PinholeCamera camera,
+  const float min_inlier_ratio_bad,
+  const float min_depth)
 {
   const int x = threadIdx.x + blockIdx.x * blockDim.x;
   const int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -65,18 +47,23 @@ __global__ void fuse_transform(
 
   float4 pixel_info = pre_seeds_devptr->atXY(x,y);
 
-  if ( is_badpoint(pixel_info) )
+  if ( is_badpoint(pixel_info, min_inlier_ratio_bad) )
     return;
 
+  // Transform point from last to current frame
   float3 projected = last_to_cur * (dir * pixel_info.z);
+
+  // Ignore if closer than min depth
   float new_depth = length(projected);
-  if(new_depth <= 0.5)
+  if(new_depth <= min_depth)
     return;
 
   pixel_info.z = new_depth;
-  pixel_info.w += new_depth * 0.01;
+  // Accumulate variance ??
+  // pixel_info.w += new_depth * 0.01; // TODO: Add parameter
   // pixel_info.y *= 1.001;
 
+  // Project onto current image
   const float2 project_point = camera.world2cam(projected);
   const int projecte_x = project_point.x + 0.5;
   const int projecte_y = project_point.y + 0.5;
@@ -91,6 +78,7 @@ __global__ void fuse_transform(
   // if( fabs(origin_color-trans_color) > 30.0 )
   //   return;
 
+  // Depth map culling over multiple threads
   int *check_ptr = &(transform_table_devptr->atXY(projecte_x, projecte_y));
   int expect_i = 0;
   int actual_i;
@@ -133,6 +121,7 @@ __global__ void hole_filling(DeviceImage<int> *transform_table_devptr)
   if(transform_i == 0)
     return;
 
+  // Propagate depth to neighbors, if they are not set
   for(int i = -1; i <= 1; i++)
   {
     for(int j = -1; j <= 1; j++)
@@ -147,7 +136,11 @@ __global__ void fuse_currentmap(
   DeviceImage<int> *transform_table_devptr,
   DeviceImage<float> *depth_output_devptr,
   DeviceImage<float4> *former_depth_devptr,
-  DeviceImage<float4> *new_depth_devptr)
+  DeviceImage<float4> *new_depth_devptr,
+  const float min_inlier_ratio_good,
+  const float new_variance_factor,
+  const float prev_variance_factor,
+  const float variance_offset)
 {
   const int x = threadIdx.x + blockIdx.x * blockDim.x;
   const int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -155,40 +148,48 @@ __global__ void fuse_currentmap(
   const int width = transform_table_devptr->width;
   const int height = transform_table_devptr->height;
 
-  if(x >= width || y >= height)
+  if (x >= width || y >= height)
     return;
 
+  // Current measurement and uncertainty
   float depth_estimate = depth_output_devptr->atXY(x,y);
   // float uncertianity = depth_estimate * depth_estimate * 0.01;
   // float uncertianity = 1.0;
-  float uncertianity = fmaxf(0.5,depth_estimate*0.2);
+  float uncertianity = fmaxf(0.5,depth_estimate*0.2); //TODO: Add parameter
   uncertianity *= uncertianity;
-  if(depth_estimate <= 0.0f)
+  if (depth_estimate <= 0.0f)
     uncertianity = 1e9;
 
+  //printf("Uncertainty %f\n", uncertianity);
+
+  // Get previous estimate
   int pre_position = transform_table_devptr->atXY(x,y);
   float4 pixel_info;
-  if(pre_position > 0)
+  if (pre_position > 0)
     pixel_info = former_depth_devptr->atXY(pre_position%width, pre_position/width);
   else
-  { 
+  {
+    // Assume initial estimate with current depth
     pixel_info = make_float4(initial_a, initial_b, depth_estimate, initial_variance);
   }
 
-  if( (depth_estimate - pixel_info.z)*(depth_estimate - pixel_info.z) > uncertianity + pixel_info.w)
+  // Reset previous estimate if depth difference is bigger than sum of variances, eg due to an occlusion
+  if ( (depth_estimate - pixel_info.z)*(depth_estimate - pixel_info.z) > uncertianity * new_variance_factor + pixel_info.w * prev_variance_factor + variance_offset)
      pixel_info = make_float4(initial_a, initial_b, depth_estimate, initial_variance);
 
-  //orieigin info
+  // Previous estimate
   float a = pixel_info.x;
   float b = pixel_info.y;
   float miu = pixel_info.z;
   float sigma_sq = pixel_info.w;
 
+  // Update based on variance
   float new_sq = uncertianity * sigma_sq / (uncertianity + sigma_sq);
   float new_miu = (depth_estimate * sigma_sq + miu * uncertianity) / (uncertianity + sigma_sq);
   float c1 = (a / (a+b)) * normpdf(depth_estimate, miu, uncertianity + sigma_sq);
-  float c2 = (b / (a+b)) * 1 / 50.0f;
+  float c2 = (b / (a+b)) * 1 / 50.0f; //TODO: Add parameter
 
+  // Update based on outlier ratio
   const float norm_const = c1 + c2;
   c1 = c1 / norm_const;
   c2 = c2 / norm_const;
@@ -204,7 +205,16 @@ __global__ void fuse_currentmap(
 
   __syncthreads();
 
-  if(is_goodpoint(pixel_info))
+//  depth_output_devptr->atXY(x,y) = mu_prime;
+//  return;
+
+  // (point_info.x /(point_info.x + point_info.y) > 0.60)
+  //if(pre_position > 0)
+//  if (pixel_info.x /(pixel_info.x + pixel_info.y) > 0.6) // inlier ratio: a / (a + b)
+//    printf("%f / (%f + %f) = %f > 0.6\n", pixel_info.x, pixel_info.x, pixel_info.y, pixel_info.x /(pixel_info.x + pixel_info.y));
+
+  // Check previous inlier ratio
+  if(is_goodpoint(pixel_info, min_inlier_ratio_good))
     depth_output_devptr->atXY(x,y) = mu_prime;
   else
     depth_output_devptr->atXY(x,y) = -1.0f;

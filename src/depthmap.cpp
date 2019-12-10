@@ -18,16 +18,38 @@
 #include <quadmap/depthmap.h>
 quadmap::Depthmap::Depthmap(size_t width,
                         size_t height,
+                        size_t cost_downsampling,
                         float fx,
                         float cx,
                         float fy,
                         float cy,
                         cv::Mat remap_1,
                         cv::Mat remap_2,
-                        int semi2dense_ratio)
+                        int semi2dense_ratio,
+                        bool doBeliefPropagation,
+                        bool useQuadtree,
+                        bool doFusion,
+                        bool doGlobalUpsampling,
+                        bool fixNearPoint,
+                        bool printTimings,
+                        float P1, float P2,
+                        bool inverse_depth,
+                        float min_depth,
+                        float max_depth,
+                        float new_keyframe_max_angle,
+                        float new_keyframe_max_distance,
+                        float new_reference_max_angle,
+                        float new_reference_max_distance,
+                        float min_inlier_ratio_good,
+                        float min_inlier_ratio_bad,
+                        float new_variance_factor,
+                        float prev_variance_factor,
+                        float variance_offset)
   : width_(width)
   , height_(height)
-  , seeds_(width, height, quadmap::PinholeCamera(fx, fy, cx, cy))
+  , seeds_(width, height, cost_downsampling, quadmap::PinholeCamera(fx, fy, cx, cy), doBeliefPropagation, useQuadtree,
+          doFusion, doGlobalUpsampling, fixNearPoint, printTimings, P1, P2, inverse_depth, min_depth, max_depth, new_keyframe_max_angle, new_keyframe_max_distance, new_reference_max_angle,
+          new_reference_max_distance, min_inlier_ratio_good, min_inlier_ratio_bad, new_variance_factor, prev_variance_factor, variance_offset)
   , fx_(fx)
   , fy_(fy)
   , cx_(cx)
@@ -47,7 +69,7 @@ bool quadmap::Depthmap::add_frames( const cv::Mat &img_curr,
 
   if(has_result)
   {
-    seeds_.get_result(depth_out, debug_out, reference_out);
+    seeds_.get_result(depth_out, debug_out, reference_out, epipolar_out, keyframe_out);
     T_world_ref = T_curr_world.inv();
   }
 
@@ -65,4 +87,12 @@ const cv::Mat_<float> quadmap::Depthmap::getDebugmap() const
 const cv::Mat quadmap::Depthmap::getReferenceImage() const
 {
   return reference_out;
+}
+const cv::Mat quadmap::Depthmap::getEpipolarImage() const
+{
+    return epipolar_out;
+}
+const cv::Mat quadmap::Depthmap::getKeyframeImage() const
+{
+    return keyframe_out;
 }

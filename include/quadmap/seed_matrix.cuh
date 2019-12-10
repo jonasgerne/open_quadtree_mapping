@@ -44,7 +44,27 @@ public:
   SeedMatrix(
       const size_t &width,
       const size_t &height,
-      const PinholeCamera &cam);
+      const size_t &cost_downsampling,
+      const PinholeCamera &cam,
+      bool doBeliefPropagation,
+      bool useQuadtree,
+      bool doFusion,
+      bool doGlobalUpsampling,
+      bool fixNearPoint,
+      bool printTimings,
+      float P1, float P2,
+      bool inverse_depth,
+      float min_depth,
+      float max_depth,
+      float new_keyframe_max_angle,
+      float new_keyframe_max_distance,
+      float new_reference_max_angle,
+      float new_reference_max_distance,
+      float min_inlier_ratio_good,
+      float min_inlier_ratio_bad,
+      float new_variance_factor,
+      float prev_variance_factor,
+      float variance_offset);
   ~SeedMatrix();
 
   void set_remap(cv::Mat _remap_1, cv::Mat _remap_2);
@@ -54,7 +74,7 @@ public:
     const SE3<float> T_curr_world
   );
 
-  void get_result(cv::Mat &depth, cv::Mat &debug, cv::Mat &reference);
+  void get_result(cv::Mat &depth, cv::Mat &debug, cv::Mat &reference, cv::Mat &epipolar, cv::Mat &keyframe);
 private:
   bool add_frames(
     cv::Mat &input_image,
@@ -78,7 +98,7 @@ private:
   bool need_add_reference();
   void add_reference();
 
-  //for depth fusion
+  //for depth fusioseed_matrixn
   void fuse_output_depth();
 
   cudaStream_t swict_semidense_stream1;
@@ -86,13 +106,42 @@ private:
   cudaStream_t swict_semidense_stream3;
   size_t width;
   size_t height;
+  size_t cost_downsampling;
   int frame_index;
   int semi2dense_ratio;
   bool initialized;
+  bool doBeliefPropagation;
+  bool useQuadtree;
+  bool doFusion;
+  bool doGlobalUpsampling;
+  bool fixNearPoint;
+  bool printTimings;
+
+  bool inverse_depth;
+  float min_depth;
+  float max_depth;
+  float step_depth;
+
+  // BP Parameters
+  float P1;
+  float P2;
+
+  // Stereo Parameters
+  float new_keyframe_max_angle;
+  float new_keyframe_max_distance;
+  float new_reference_max_angle;
+  float new_reference_max_distance;
+  float min_inlier_ratio_good;
+  float min_inlier_ratio_bad;
+  float new_variance_factor;
+  float prev_variance_factor;
+  float variance_offset;
+
   MatchParameter match_parameter;
 
   DeviceImage<float> depth_output;
   DeviceImage<float> debug_image;
+  DeviceImage<float4> epipolar_image;
 
   //income image
   DeviceImage<float> pre_income_image;
@@ -129,6 +178,7 @@ private:
   //result
   cv::Mat cv_output;
   cv::Mat cv_debug;
+  cv::Mat cv_epipolar;
 
   //camera model
   PinholeCamera camera;

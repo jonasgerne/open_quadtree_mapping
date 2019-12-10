@@ -48,6 +48,8 @@ struct MatchParameter
   int current_frames;
   FrameElement framelist_dev[KEYFRAME_NUM];
 
+  size_t cost_downsampling;
+
   MatchParameter *dev_ptr;
   bool is_dev_allocated;
 };

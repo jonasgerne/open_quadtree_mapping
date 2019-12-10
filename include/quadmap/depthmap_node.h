@@ -36,11 +36,16 @@ namespace quadmap {
                 const sensor_msgs::ImageConstPtr &image_input,
                 const geometry_msgs::PoseStampedConstPtr &pose_input);
 
+        void Msg_Callback_tf(
+                const sensor_msgs::ImageConstPtr &image_input,
+                const geometry_msgs::TransformStampedConstPtr &trans_input);
+
         void imageCb(const sensor_msgs::ImageConstPtr &image_input);
 
         void setFrameName(const std::string &frame_name);
 
         const std::string &getFrameName() const;
+        bool setImuCam();
 
     private:
         void denoiseAndPublishResults();
@@ -54,6 +59,7 @@ namespace quadmap {
         std::unique_ptr<quadmap::Publisher> publisher_;
         tf::TransformListener tf_listener_;
         std::string tf_goal_frame_;
+        tf::StampedTransform imu_cam_;
     };
 
 }

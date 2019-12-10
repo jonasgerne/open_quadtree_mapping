@@ -1,14 +1,17 @@
-#include <cuda_toolkit/helper_math.h>
-#include <quadmap/device_image.cuh>
-#include <quadmap/texture_memory.cuh>
-#include <quadmap/match_parameter.cuh>
-#include <quadmap/pixel_cost.cuh>
-#include <ctime>
+#include <quadmap/bpextract.cuh>
 
 namespace quadmap
 {
 //function declear here!
-void bp_extract(DeviceImage<PIXEL_COST> &image_cost_map, DeviceImage<float> &depth);
+void bp_extract(
+        int cost_downsampling,
+        bool inverse_depth,
+        float min_depth,
+        float step_depth,
+        DeviceImage<PIXEL_COST> &image_cost_map,
+        DeviceImage<float> &depth,
+        float P1,
+        float P2);
 __global__ void cost_distribute(
     DeviceImage<PIXEL_COST> *l0_cost_devptr,
     DeviceImage<PIXEL_COST> *l1_cost_devptr);
@@ -24,6 +27,10 @@ __global__ void upsample(
     DeviceImage<PIXEL_COST> *l1_message_devptr,
     DeviceImage<PIXEL_COST> *l0_message_devptr);
 __global__ void depth_extract(
+    int cost_downsampling,
+    bool inverse_depth,
+    float min_depth,
+    float step_depth,
     DeviceImage<PIXEL_COST> *data_devptr,
     DeviceImage<PIXEL_COST> *lm_devptr,
     DeviceImage<PIXEL_COST> *rm_devptr,
@@ -34,7 +41,7 @@ __global__ void depth_extract(
 //function define here!
 //we only optimize the cost at 16x16 and 32x32 level, for finer level, we only optimize at local patch and jump the corser level
 //we start the optimize at image_level, and the cost map begins at image_level
-void bp_extract(DeviceImage<PIXEL_COST> &image_cost_map, DeviceImage<float> &depth)
+void bp_extract(int cost_downsampling, bool inverse_depth, float min_depth, float step_depth, DeviceImage<PIXEL_COST> &image_cost_map, DeviceImage<float> &depth, float P1, float P2)
 {
     const int width = image_cost_map.width;
     const int height = image_cost_map.height;
@@ -64,9 +71,10 @@ void bp_extract(DeviceImage<PIXEL_COST> &image_cost_map, DeviceImage<float> &dep
         prycost_hostptr[i] = new DeviceImage<PIXEL_COST>(h_width[i], h_height[i]);
     }
 
+    // Distribute cost from fine to coarse by summing over 2x2 patches
     dim3 hier_block;
     dim3 hier_grid;
-    hier_block.z = 64;
+    hier_block.z = DEPTH_NUM;
     for(int i = 1; i < hbp_level; i++)
     {
         hier_grid.x = h_width[i];
@@ -77,6 +85,8 @@ void bp_extract(DeviceImage<PIXEL_COST> &image_cost_map, DeviceImage<float> &dep
         cudaDeviceSynchronize();
     }
 
+    //printf("CUDA Status %s\n", cudaGetErrorString(cudaGetLastError()));
+
     //loopy bp on each level
     //create the message four dirs
     DeviceImage<PIXEL_COST> *message_hostptr[4];
@@ -84,25 +94,29 @@ void bp_extract(DeviceImage<PIXEL_COST> &image_cost_map, DeviceImage<float> &dep
     message_hostptr[1] = new DeviceImage<PIXEL_COST>(h_width[hbp_level - 1], h_height[hbp_level - 1]);
     message_hostptr[2] = new DeviceImage<PIXEL_COST>(h_width[hbp_level - 1], h_height[hbp_level - 1]);
     message_hostptr[3] = new DeviceImage<PIXEL_COST>(h_width[hbp_level - 1], h_height[hbp_level - 1]);
+    // Initialize with zeros
     message_hostptr[0]->zero();
     message_hostptr[1]->zero();
     message_hostptr[2]->zero();
     message_hostptr[3]->zero();
 
+    // Hierachical message computation from coarse to fine
     for(int i_leverl = hbp_level - 1; i_leverl >= 0; i_leverl--)
     {
         // /*if i_leverl is not the coarsest, initialize the message*/
         if( i_leverl < (hbp_level - 1) )
         {
+            // New buffers for level
             DeviceImage<PIXEL_COST> *message_next_hostptr[4];
             message_next_hostptr[0] = new DeviceImage<PIXEL_COST>(h_width[i_leverl], h_height[i_leverl]);
             message_next_hostptr[1] = new DeviceImage<PIXEL_COST>(h_width[i_leverl], h_height[i_leverl]);
             message_next_hostptr[2] = new DeviceImage<PIXEL_COST>(h_width[i_leverl], h_height[i_leverl]);
             message_next_hostptr[3] = new DeviceImage<PIXEL_COST>(h_width[i_leverl], h_height[i_leverl]);
 
+            // Upsample coarse cost to new level, by simply copying from 1 pixel to each pixel in 2x2 patch
             dim3 message_up_block;
             dim3 message_up_grid;
-            message_up_block.x = 64;
+            message_up_block.x = DEPTH_NUM;
             message_up_grid.x = h_width[i_leverl + 1];
             message_up_grid.y = h_height[i_leverl + 1];
             for(int mess_i = 0; mess_i < 4; mess_i++)
@@ -112,6 +126,7 @@ void bp_extract(DeviceImage<PIXEL_COST> &image_cost_map, DeviceImage<float> &dep
 
             cudaDeviceSynchronize();
 
+            // Clean up last level memory
             for(int mess_i = 0; mess_i < 4; mess_i++)
             {
                 delete message_hostptr[mess_i];
@@ -123,11 +138,13 @@ void bp_extract(DeviceImage<PIXEL_COST> &image_cost_map, DeviceImage<float> &dep
         dim3 bp_block;
         dim3 bp_grid;
         bp_block.x = 4;
-        bp_block.y = 64;
-        bp_grid.x = h_width[i_leverl];
+        bp_block.y = DEPTH_NUM;
         bp_grid.y = h_height[i_leverl];
-        bp_grid.x = (bp_grid.x + 1) / 2; //every iterate on the A or B set of the whole image
+        bp_grid.x = (h_width[i_leverl] + 1) / 2; //every iterate on the A or B set of the whole image
+        //bp_grid.x = h_width[i_leverl];
         bool A_set = true;
+        // Update messages iteratively by summing cost at each costvolume entry with values from messages from 3-neighbors for each direction
+        // applying SGM cost regularization strategy
         for(int i_iterate = 0; i_iterate < hbp_iterate[i_leverl]; i_iterate++)
         {
             bp <<< bp_grid, bp_block>>>(
@@ -137,24 +154,35 @@ void bp_extract(DeviceImage<PIXEL_COST> &image_cost_map, DeviceImage<float> &dep
                 message_hostptr[2]->dev_ptr,
                 message_hostptr[3]->dev_ptr,
                 A_set,
-                i_leverl + 2);
+                i_leverl + 2,
+                P1, P2);
             A_set = !A_set;
             cudaDeviceSynchronize();
         }
     }
 
+    //printf("CUDA Status %s\n", cudaGetErrorString(cudaGetLastError()));
+
+    // Extract depth by finding min cost for sum of pixel cost + 4-neighbor costs
     dim3 depth_extract_block;
     dim3 depth_extract_grid;
     depth_extract_block.x = DEPTH_NUM;
     depth_extract_grid.x = width;
     depth_extract_grid.y = height;
     depth_extract <<< depth_extract_grid, depth_extract_block>>>(
+        cost_downsampling,
+        inverse_depth,
+        min_depth,
+        step_depth,
         prycost_hostptr[0]->dev_ptr,
         message_hostptr[0]->dev_ptr,
         message_hostptr[1]->dev_ptr,
         message_hostptr[2]->dev_ptr,
         message_hostptr[3]->dev_ptr,
         depth.dev_ptr);
+
+    cudaDeviceSynchronize();
+    //printf("CUDA Status %s\n", cudaGetErrorString(cudaGetLastError()));
 
     for(int i = 1; i < hbp_level; i++)
     {
@@ -183,6 +211,7 @@ __global__ void cost_distribute(DeviceImage<PIXEL_COST> *l0_cost_devptr,
 
     float cost_sum(0.0f);
 
+    // For every pixel in l1 set cost to sum over 2x2 pixels in l0
     for(int i = 0; i < 2; i++)
     {
         for(int j = 0; j < 2; j++)
@@ -204,13 +233,16 @@ __global__ void bp(
     DeviceImage<PIXEL_COST> *up_devptr,
     DeviceImage<PIXEL_COST> *dm_devptr,
     bool A_set,
-    int i_leverl)
+    int i_leverl,
+    float P1,
+    float P2)
 {
     int x = blockIdx.x;
     int y = blockIdx.y;
-    int dir = threadIdx.x;
-    int depth_id = threadIdx.y;
+    int dir = threadIdx.x; // direction 0-3
+    int depth_id = threadIdx.y; // cost index
 
+    // Check if pixel is defined on current level
     if(i_leverl <= 4)
     {
         int size = 1 << i_leverl;
@@ -219,9 +251,7 @@ __global__ void bp(
             return;
     }
 
-    float P1 = 0.003f;
-    float P2 = 0.01f;
-
+    // Alternate between pixels in checkerboard pattern
     if(A_set)
         x = x * 2 + y % 2;
     else
@@ -248,6 +278,7 @@ __global__ void bp(
     __shared__ float neighbor_cost_min[4][DEPTH_NUM];
     __shared__ float raw_cost[4][DEPTH_NUM];
 
+    // Collect cost messages from all neighbors except the receiving one
     neighbor_cost[dir][depth_id] = (data_devptr->atXY(x, y)).get_cost(depth_id);
 
     if(dir != 0 && !on_up) // to up
@@ -269,7 +300,7 @@ __global__ void bp(
     neighbor_cost_min[dir][depth_id] = neighbor_cost[dir][depth_id];
     __syncthreads();
 
-    //find min
+    // find minimum cost for each direction
     for(int i = DEPTH_NUM / 2; i > 0; i = i / 2)
     {
         if(depth_id < i && neighbor_cost_min[dir][depth_id + i] < neighbor_cost_min[dir][depth_id])
@@ -279,17 +310,21 @@ __global__ void bp(
         __syncthreads();
     }
 
-    //find min cost for every message
+    // find min cost for every message using SGM penalties
     float min_cost = neighbor_cost[dir][depth_id];
+    // Add terms for previous/next depth step, if cost difference smaller than threshold P1 then take that cost
     if(depth_id > 0)
         min_cost = fminf(min_cost, neighbor_cost[dir][depth_id - 1] + P1);
     if(depth_id < DEPTH_NUM - 1)
         min_cost = fminf(min_cost, neighbor_cost[dir][depth_id + 1] + P1);
+    // Minimum cost over all possible depth if difference with minimum cost smaller than threshld P2 take that cost
     min_cost = fminf(min_cost, neighbor_cost_min[dir][0] + P2);
 
+    // Compute mean cost
     raw_cost[dir][depth_id] = min_cost;
     __syncthreads();
 
+    // Reduce sum
     for(int i = DEPTH_NUM / 2; i > 0; i = i / 2)
     {
         if(depth_id < i)
@@ -299,8 +334,13 @@ __global__ void bp(
         __syncthreads();
     }
 
+    // Normalize min cost by subtracting mean cost
     min_cost = min_cost - raw_cost[dir][0] / (float) DEPTH_NUM;
 
+    if((x == 525) && (y == 25) && (dir == 0))
+        printf("%d: min cost %f\n", depth_id, min_cost);
+
+    // Copy final message for direction
     if(dir == 0) //up
         (up_devptr->atXY(x, y)).set_cost(depth_id, min_cost);
     else if(dir == 1) //to down
@@ -312,6 +352,10 @@ __global__ void bp(
 }
 
 __global__ void depth_extract(
+    int cost_downsampling,
+    bool inverse_depth,
+    float min_depth,
+    float step_depth,
     DeviceImage<PIXEL_COST> *data_devptr,
     DeviceImage<PIXEL_COST> *lm_devptr,
     DeviceImage<PIXEL_COST> *rm_devptr,
@@ -324,14 +368,17 @@ __global__ void depth_extract(
     int width = data_devptr->width;
     int height = data_devptr->height;
     int depth_id = threadIdx.x;
-    int pixel_level = tex2D(quadtree_tex, x * 4, y * 4);
+
+    // If not on this level skip
+    int pixel_level = tex2D(quadtree_tex, x * cost_downsampling, y * cost_downsampling);
     int level_size = 1 << pixel_level;
-    if(x * 4 % level_size != 0 || y * 4 % level_size != 0)
+    if(x * cost_downsampling % level_size != 0 || y * cost_downsampling % level_size != 0)
         return;
 
     __shared__ float cost[DEPTH_NUM];
     __shared__ float min_cost[DEPTH_NUM];
     __shared__ int min_id[DEPTH_NUM];
+    // Total cost is sum of node and 4-neighbours
     cost[depth_id] = data_devptr->atXY(x, y).get_cost(depth_id);
     if(x != 0)
         cost[depth_id] += rm_devptr->atXY(x - 1, y).get_cost(depth_id);
@@ -343,7 +390,9 @@ __global__ void depth_extract(
         cost[depth_id] += up_devptr->atXY(x, y + 1).get_cost(depth_id);
     min_cost[depth_id] = cost[depth_id];
     min_id[depth_id] = depth_id;
+
     __syncthreads();
+    // Find minimum cost and index
     for(int i = DEPTH_NUM / 2; i > 0; i /= 2)
     {
         if(depth_id < i && min_cost[depth_id + i] < min_cost[depth_id])
@@ -354,20 +403,26 @@ __global__ void depth_extract(
         __syncthreads();
     }
 
+    // Reduce with one thread
     if(depth_id == 0)
     {
         float disparity = min_id[0];
         if(min_id[0] > 0 && min_id[0] < DEPTH_NUM - 1)
         {
+            // Interpolate disparity between neigbouring costs
             float cost_pre = cost[min_id[0] - 1];
             float cost_post = cost[min_id[0] + 1];
             float a = cost_pre - 2.0f * min_cost[0] + cost_post;
             float b = - cost_pre + cost_post;
             float b_a = b/a;
-            if(isfinite(b_a))
+            if (a > 0.0f)
 	            disparity = (float) min_id[0] - b_a / 2.0f;
+            //disparity = (float)min_id[0] - b / (2.0f * a);
         }
-        extracted_depth_devptr->atXY(x * 4, y * 4) = 1.0 / (STEP_INV_DEPTH * disparity + MIN_INV_DEPTH);
+        if (inverse_depth)
+            extracted_depth_devptr->atXY(x * cost_downsampling, y * cost_downsampling) = 1.0 / (step_depth * disparity + min_depth);
+        else
+            extracted_depth_devptr->atXY(x * cost_downsampling, y * cost_downsampling) = (step_depth * disparity + min_depth);
     }
 }
 
@@ -381,6 +436,7 @@ __global__ void upsample(
     const int l0_width = l0_message_devptr->width;
     const int l0_height = l0_message_devptr->height;
 
+    // Copy cost from coarse to every pixel in 2x2 patch in fine level
     float value = (l1_message_devptr->atXY(x, y)).get_cost(depth_id);
     for(int j = 0; j < 2; j++)
     {

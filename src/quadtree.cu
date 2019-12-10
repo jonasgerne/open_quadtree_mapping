@@ -1,15 +1,9 @@
-// #pragma once
-#include <vector>
-#include <vector_types.h>
-#include <cuda_toolkit/helper_math.h>
-#include <quadmap/device_image.cuh>
+#include <quadmap/quadtree.cuh>
 
 namespace quadmap
 {
+// kernel
 
-//kernal
-__global__ void quadtree_image_kernal(DeviceImage<int> *quadtree_devptr);
-__global__ void quadtree_depth_kernal(DeviceImage<float> *prior_depth_devptr, DeviceImage<int> *quadtree_devptr);
 //according to the image and depth to select the point;
 //if the depth is available, select the point according to the depth image, level = max(depth_level, image_level)
 //if the depth is not available, level = max(4, image_level)
@@ -73,7 +67,7 @@ __global__ void quadtree_image_kernal(DeviceImage<int> *quadtree_devptr)
   }
   pyramid_level = pyramid_level < 2 ? 2 : pyramid_level;
   quadtree_devptr->atXY(x, y) = pyramid_level;
-  // quadtree_devptr->atXY(x, y) = 2;
+  //quadtree_devptr->atXY(x, y) = 0;
 }
 
 __global__ void quadtree_depth_kernal(DeviceImage<float> *prior_depth_devptr, DeviceImage<int> *quadtree_devptr)
@@ -121,15 +115,18 @@ __global__ void quadtree_depth_kernal(DeviceImage<float> *prior_depth_devptr, De
 
     if(I_AM_LAST_NODE && (level_x != local_x || level_y != local_y))
     {
+      // Accumulate depth and votes
       atomicAdd(&(pyramid_invdepth[level_x][level_y]), pyramid_invdepth[local_x][local_y]);
       atomicAdd(&(pyramid_num[level_x][level_y]), pyramid_num[local_x][local_y]);
     }
     approve[level_x][level_y] = true;
     __syncthreads();
 
+    // If not all pixels voted skip
     if(pyramid_num[level_x][level_y] != num_pixels)
       break;
 
+    // Check std deviation, if any is above 0.01f, do not approve this level
     average_invdepth = pyramid_invdepth[level_x][level_y] / float(num_pixels);
     if( fabs(my_invdepth - average_invdepth) > 0.01f )
     {
@@ -151,6 +148,7 @@ __global__ void quadtree_depth_kernal(DeviceImage<float> *prior_depth_devptr, De
   int level = max(color_level, pyramid_level);
 
   quadtree_devptr->atXY(x, y) = level;
+  //quadtree_devptr->atXY(x, y) = 0;
 }
 
 }//namespace

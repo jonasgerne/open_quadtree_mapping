@@ -94,8 +94,13 @@ bool quadmap::DepthmapNode::init() {
             CV_32FC1,
             undist_map1, undist_map2);
 
-    depthmap_ = std::make_shared<quadmap::Depthmap>(resize_width, resize_height, resize_fx, resize_cx, resize_fy,
-                                                    resize_cy, undist_map1, undist_map2, semi2dense_ratio);
+    depthmap_ = std::make_shared<quadmap::Depthmap>(resize_width, resize_height, 4, resize_fx, resize_cx, resize_fy,
+                                                    resize_cy, undist_map1, undist_map2, semi2dense_ratio,
+                                                    false, false, false, false, false,
+                                                    true, 0.003f, 0.01f, true, 1.0, 50.0,
+                                                    0.95f, 0.03f, 0.95f,
+                                                    0.03f, 0.6, 0.45, 1.0f,
+                                                    1.0f, 0.0f);
 
     bool pub_pointcloud = false;
     nh_.getParam("publish_pointcloud", pub_pointcloud);
@@ -139,6 +144,47 @@ void quadmap::DepthmapNode::Msg_Callback(
         denoiseAndPublishResults();
 }
 
+void quadmap::DepthmapNode::Msg_Callback_tf(
+        const sensor_msgs::ImageConstPtr &image_input,
+        const geometry_msgs::TransformStampedConstPtr &trans_input) {
+    printf("\n\n\n");
+    num_msgs_ += 1;
+    current_msg_time = image_input->header.stamp;
+    if (!depthmap_) {
+        ROS_ERROR("depthmap not initialized. Call the DepthmapNode::init() method");
+        return;
+    }
+    cv::Mat img_8uC1;
+    try {
+        cv_bridge::CvImageConstPtr cv_img_ptr =
+                cv_bridge::toCvShare(image_input, sensor_msgs::image_encodings::MONO8);
+        img_8uC1 = cv_img_ptr->image;
+    }
+    catch (cv_bridge::Exception &e) {
+        ROS_ERROR("cv_bridge exception: %s", e.what());
+    }
+
+    tf::StampedTransform imu_transform;
+    tf::transformStampedMsgToTF(*trans_input, imu_transform);
+
+    tf::Transform world_cam_tf;
+    world_cam_tf = imu_transform * this->imu_cam_;
+
+    quadmap::SE3<float> T_world_curr(
+            world_cam_tf.getRotation().w(),
+            world_cam_tf.getRotation().x(),
+            world_cam_tf.getRotation().y(),
+            world_cam_tf.getRotation().z(),
+            world_cam_tf.getOrigin().x(),
+            world_cam_tf.getOrigin().y(),
+            world_cam_tf.getOrigin().z());
+
+    bool has_result;
+    has_result = depthmap_->add_frames(img_8uC1, T_world_curr.inv());
+    if (has_result)
+        denoiseAndPublishResults();
+}
+
 void quadmap::DepthmapNode::imageCb(const sensor_msgs::ImageConstPtr &image_input) {
     printf("\n\n");
     num_msgs_ += 1;
@@ -162,8 +208,8 @@ void quadmap::DepthmapNode::imageCb(const sensor_msgs::ImageConstPtr &image_inpu
     int count{0};
     while (!success) {
         try {
-            tf_listener_.waitForTransform(tf_goal_frame_, "world", current_msg_time, ros::Duration(3.0));
-            tf_listener_.lookupTransform(tf_goal_frame_, "world", current_msg_time, transform);
+            tf_listener_.waitForTransform("world", tf_goal_frame_, current_msg_time, ros::Duration(3.0));
+            tf_listener_.lookupTransform("world", tf_goal_frame_, current_msg_time, transform);
             success = true;
             ROS_INFO("Timestep: %lf", current_msg_time.toSec());
         } catch (tf::ExtrapolationException &e) {
@@ -206,4 +252,14 @@ void quadmap::DepthmapNode::setFrameName(const std::string &frame_name) {
 
 const std::string &quadmap::DepthmapNode::getFrameName() const {
     return tf_goal_frame_;
+}
+
+bool quadmap::DepthmapNode::setImuCam() {
+    try {
+        tf::TransformListener tmp_listener;
+        tmp_listener.waitForTransform("/imu", "/cam02", ros::Time(0), ros::Duration(3.0));
+        tmp_listener.lookupTransform("/imu", "/cam02", ros::Time(0), imu_cam_);
+        return true;
+    } catch (tf::TransformException &ex) {
+        return false;}
 }
