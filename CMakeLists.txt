@@ -23,7 +23,7 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CUDA_STANDARD 11)
 
 find_package(OpenCV REQUIRED)
-find_package(Eigen3 REQUIRED)
+find_package(Eigen REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system filesystem)
 if(WITH_ROS)
     find_package(catkin REQUIRED COMPONENTS
@@ -73,11 +73,23 @@ add_library(open_quadtree_mapping_lib STATIC
         )
 
 if(WITH_ROS)
-    add_executable(open_quadtree_mapping_node
-            src/depthmap_node.cpp
-            src/publisher.cpp
-            src/main_ros.cpp
-            )
-    target_link_libraries(open_quadtree_mapping_node open_quadtree_mapping_lib
-            ${catkin_LIBRARIES} ${OpenCV_LIBS} ${Boost_LIBRARIES})
+  add_executable(open_quadtree_mapping_node
+      src/depthmap_node.cpp
+      src/publisher.cpp
+      src/main_ros.cpp)
+
+  add_executable(open_quadtree_mapping_tf_node
+          src/depthmap_node.cpp
+          src/publisher.cpp
+          src/main_ros_transform_msg_sub.cpp)
+  target_link_libraries(open_quadtree_mapping_node open_quadtree_mapping_lib
+  ${catkin_LIBRARIES} ${OpenCV_LIBS} ${Boost_LIBRARIES})
+  target_link_libraries(open_quadtree_mapping_tf_node open_quadtree_mapping_lib
+          ${catkin_LIBRARIES} ${OpenCV_LIBS} ${Boost_LIBRARIES})
 endif()
+
+add_executable(open_quadtree_mapping_standalone src/main_standalone.cpp)
+target_link_libraries(open_quadtree_mapping_standalone open_quadtree_mapping_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${Boost_LIBRARIES} X11)
+
+# Python module
+include_directories( ${EIGEN3_INCLUDE_DIRS} )
