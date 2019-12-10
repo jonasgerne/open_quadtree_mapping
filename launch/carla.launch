@@ -1,0 +1,21 @@
+
+<launch>
+  <node pkg="open_quadtree_mapping" type="open_quadtree_mapping_node" name="open_quadtree_mapping" clear_params="true" output="screen" >
+
+    <param name="cam_width" value="1241" />
+    <param name="cam_height" value="376" />
+    <param name="cam_fx" value="6.205000000000001e+02" />
+    <param name="cam_cx" value="6.20500e+02" />
+    <param name="cam_fy" value="6.205000000000001e+02" />
+    <param name="cam_cy" value="1.88000e+02" />
+        <!--downsample factor: 0 ~ 1-->
+    <param name="downsample_factor" value="1"/>
+    <param name="semi2dense_ratio" value="1"/>
+
+    <param name="use_tf_transforms" value="true" />
+
+    <!-- if using synchronize image and pose-->
+    <remap from="~image" to="/carla/ego_vehicle/camera/rgb/left/image_raw" />
+
+  </node>
+</launch>

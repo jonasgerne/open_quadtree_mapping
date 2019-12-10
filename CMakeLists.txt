@@ -3,7 +3,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8.3)
 PROJECT(${PROJECT_NAME})
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/CMakeModules/")
 
-option(WITH_ROS "Compile with ROS wrapper" False)
+option(WITH_ROS "Compile with ROS wrapper" True)
 
 enable_language(CUDA)
 include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
@@ -26,71 +26,58 @@ find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system filesystem)
 if(WITH_ROS)
-  find_package(catkin REQUIRED COMPONENTS
-    roscpp roslib cmake_modules cv_bridge image_transport pcl_ros sensor_msgs geometry_msgs)
-  catkin_package(
-      DEPENDS OpenCV Eigen Boost
-      CATKIN_DEPENDS roscpp roslib image_transport pcl_ros
-      INCLUDE_DIRS include
-      # LIBRARIES efficient_map efficient_map_cuda
-  )
+    find_package(catkin REQUIRED COMPONENTS
+            roscpp roslib cmake_modules cv_bridge image_transport pcl_ros sensor_msgs geometry_msgs)
+    catkin_package(
+            DEPENDS OpenCV Eigen Boost
+            CATKIN_DEPENDS roscpp roslib image_transport pcl_ros
+            INCLUDE_DIRS include
+            # LIBRARIES efficient_map efficient_map_cuda
+    )
 endif()
 
 if(WIN32)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_USE_MATH_DEFINES")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_USE_MATH_DEFINES")
 else()
-  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 endif()
 
 include_directories(
-  include
-  ${OpenCV_INCLUDE_DIRS}
-  ${EIGEN3_INCLUDE_DIRS}
-  ${EIGEN_INCLUDE_DIRS}
-  ${Boost_INCLUDE_DIRS}
+        include
+        ${OpenCV_INCLUDE_DIRS}
+        ${EIGEN3_INCLUDE_DIRS}
+        ${EIGEN_INCLUDE_DIRS}
+        ${Boost_INCLUDE_DIRS}
 )
 
 # Set link libraries
 list(APPEND LINK_LIBS
-  ${OpenCV_LIBS}
-  ${Boost_LIBRARIES}
-)
+        ${OpenCV_LIBS}
+        ${Boost_LIBRARIES}
+        )
 
 include_directories(${catkin_INCLUDE_DIRS})
 list(APPEND LINK_LIBS ${catkin_LIBRARIES})
 
 add_library(open_quadtree_mapping_lib STATIC
-    src/check_cuda_device.cu
-    src/seed_matrix.cu
-    # src/bpextract.cu
-    # src/depth_extract.cu
-    # src/depth_fusion.cu
-    # src/depth_upsample.cu
-    # src/lsd_semidense.cu
-    # src/quadtree.cu
-    # src/seed_init.cu
-    src/depthmap.cpp
-)
+        src/check_cuda_device.cu
+        src/seed_matrix.cu
+        # src/bpextract.cu
+        # src/depth_extract.cu
+        # src/depth_fusion.cu
+        # src/depth_upsample.cu
+        # src/lsd_semidense.cu
+        # src/quadtree.cu
+        # src/seed_init.cu
+        src/depthmap.cpp
+        )
 
 if(WITH_ROS)
-  add_executable(open_quadtree_mapping_node
-      src/depthmap_node.cpp
-      src/publisher.cpp
-      src/main_ros.cpp
-  )
-  target_link_libraries(open_quadtree_mapping_node open_quadtree_mapping_lib
-  ${catkin_LIBRARIES} ${OpenCV_LIBS} ${Boost_LIBRARIES})
+    add_executable(open_quadtree_mapping_node
+            src/depthmap_node.cpp
+            src/publisher.cpp
+            src/main_ros.cpp
+            )
+    target_link_libraries(open_quadtree_mapping_node open_quadtree_mapping_lib
+            ${catkin_LIBRARIES} ${OpenCV_LIBS} ${Boost_LIBRARIES})
 endif()
-
-add_executable(open_quadtree_mapping_standalone src/main_standalone.cpp)
-target_link_libraries(open_quadtree_mapping_standalone open_quadtree_mapping_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${Boost_LIBRARIES} X11)
-
-# Python module
-include_directories( ${EIGEN3_INCLUDE_DIRS} )
-
-#add_subdirectory(pybind11)
-find_package(pybind11)
-include_directories( ${pybind11_INCLUDE_DIRS} )
-link_libraries( ${pybind11_LIBRARIES} )
-pybind11_add_module(pyQuadtreeMapping src/python_wrapper.cpp)
-TARGET_LINK_LIBRARIES(pyQuadtreeMapping PRIVATE open_quadtree_mapping_lib ${OpenCV_LIBS} ${Boost_LIBRARIES})
