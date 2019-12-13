@@ -1,6 +1,6 @@
 
 <launch>
-  <node pkg="open_quadtree_mapping" type="open_quadtree_mapping_node" name="open_quadtree_mapping" clear_params="true" output="screen" >
+  <node pkg="open_quadtree_mapping" type="open_quadtree_mapping_tf_node" name="open_quadtree_mapping" clear_params="true" output="screen" >
 
     <param name="cam_width" value="1241" />
     <param name="cam_height" value="376" />

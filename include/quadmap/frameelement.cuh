@@ -6,7 +6,7 @@
 #include <quadmap/se3.cuh>
 #include <quadmap/device_image.cuh>
 
-#define KEYFRAME_NUM 10
+#define KEYFRAME_NUM 5
 
 namespace quadmap
 {
@@ -15,6 +15,7 @@ struct FrameElement
 {
   DeviceImage<float> *frame_ptr;
   SE3<float> transform;
+  float seq;
   FrameElement()
   {
     frame_ptr = NULL;

@@ -66,10 +66,10 @@ bool quadmap::Depthmap::add_frames( const cv::Mat &img_curr,
 {
   bool has_result;
   has_result = seeds_.input_raw(img_curr, T_curr_world);
-
+  printf("here");
   if(has_result)
   {
-    seeds_.get_result(depth_out, debug_out, reference_out, epipolar_out, keyframe_out);
+    seeds_.get_result(depth_out, debug_out, reference_out, epipolar_out, keyframe_out, seq_output);
     T_world_ref = T_curr_world.inv();
   }
 
@@ -95,4 +95,8 @@ const cv::Mat quadmap::Depthmap::getEpipolarImage() const
 const cv::Mat quadmap::Depthmap::getKeyframeImage() const
 {
     return keyframe_out;
+}
+
+float quadmap::Depthmap::getSeq() const {
+    return seq_output;
 }

@@ -28,7 +28,6 @@
 #include <image_transport/image_transport.h>
 
 typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, geometry_msgs::TransformStamped> approx_policy;
-typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, geometry_msgs::TransformStamped> exact_policy;
 
 int main(int argc, char **argv) {
     if (!quadmap::checkCudaDevice(argc, argv))
@@ -39,7 +38,7 @@ int main(int argc, char **argv) {
     image_transport::ImageTransport it_(nh);
     quadmap::DepthmapNode dm_node(nh);
     image_transport::Subscriber sub_;
-    message_filters::Synchronizer<exact_policy> sync_(exact_policy(1000));
+    message_filters::Synchronizer<approx_policy> sync_(approx_policy(1000));
     message_filters::Subscriber<sensor_msgs::Image> image_sub_;
     // message_filters::Subscriber<geometry_msgs::PoseStamped> pose_sub_;
     message_filters::Subscriber<geometry_msgs::TransformStamped> transform_sub_;
@@ -61,6 +60,7 @@ int main(int argc, char **argv) {
     } else {
         std::string image_topic = nh.resolveName("image");
         std::string cam_info_topic = ros::names::parentNamespace(image_topic) + "/camera_info";
+        ROS_INFO("%s", cam_info_topic.c_str());
         boost::shared_ptr<const sensor_msgs::CameraInfo> cam_info_ptr = ros::topic::waitForMessage<sensor_msgs::CameraInfo>(
                 cam_info_topic, nh, ros::Duration(30));
         dm_node.setFrameName(cam_info_ptr->header.frame_id);

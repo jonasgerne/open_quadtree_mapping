@@ -4,15 +4,15 @@
 
     <param name="cam_width" value="1241" />
     <param name="cam_height" value="376" />
-    <param name="cam_fx" value="9.799200e+02" />
-    <param name="cam_cx" value="6.900000e+02" />
-    <param name="cam_fy" value="9.741183e+02" />
-    <param name="cam_cy" value="2.486443e+02" />
+    <param name="cam_fx" value="7.188560e+02" />
+    <param name="cam_cx" value="6.071928e+02" />
+    <param name="cam_fy" value="7.188560e+02" />
+    <param name="cam_cy" value="1.852157e+02" />
         <!--downsample factor: 0 ~ 1-->
     <param name="downsample_factor" value="1"/>
     <param name="semi2dense_ratio" value="5"/>
 
-    <param name="use_tf_transforms" value="false" />
+    <param name="use_tf_transforms" value="true" />
 
     <!-- if using synchronize image and pose-->
     <remap from="~image" to="/cam02/image_raw" />

@@ -41,7 +41,7 @@ int main(int argc, char **argv)
   // pixel_cost.cuh:4 DEPTH_NUM
   // depth_fusion.cuh
 
-  bool display_enabled = false;
+  bool display_enabled = true;
   bool fixNearPoint = false;
   bool printTimings = false;
   float P1 = 0.003f; // 0.003 (original)
@@ -172,11 +172,12 @@ int main(int argc, char **argv)
           new_reference_max_distance, min_inlier_ratio_good, min_inlier_ratio_bad, new_variance_factor, prev_variance_factor, variance_offset);
 
   // Run
-  for (int idx = 0; idx < poses.size(); idx++)
+  for (int idx = 1; idx < poses.size(); idx++)
   {
       // Read image
       sprintf(buffer, rgbPattern.c_str(), idx);
       cv::Mat img_8uC1 = cv::imread(buffer, cv::IMREAD_GRAYSCALE);
+      img_8uC1.at<unsigned char>(0,0) = idx;
 
       // Convert Pose
       Eigen::Matrix<float, 3, 3, Eigen::RowMajor> R = poses[idx].block<3, 3>(0, 0);

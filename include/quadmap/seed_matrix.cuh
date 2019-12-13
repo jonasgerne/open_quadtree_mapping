@@ -74,7 +74,7 @@ public:
     const SE3<float> T_curr_world
   );
 
-  void get_result(cv::Mat &depth, cv::Mat &debug, cv::Mat &reference, cv::Mat &epipolar, cv::Mat &keyframe);
+  void get_result(cv::Mat &depth, cv::Mat &debug, cv::Mat &reference, cv::Mat &epipolar, cv::Mat &keyframe, float &seq);
 private:
   bool add_frames(
     cv::Mat &input_image,
@@ -143,14 +143,15 @@ private:
   DeviceImage<float> debug_image;
   DeviceImage<float4> epipolar_image;
 
-  //income image
+  // income image
   DeviceImage<float> pre_income_image;
   DeviceImage<float> income_image;
   DeviceImage<float2> income_gradient;
   SE3<float> income_transform;
   cv::Mat income_undistort;
+  float income_seq;
 
-  //semidense
+  // semidense
   DeviceImage<DepthSeed> keyframe_semidense;
   DepthSeed* semidense_hostptr;
   DepthSeed* semidense_new_hostptr;
@@ -161,7 +162,7 @@ private:
   SE3<float> keyframe_transform;
   cv::Mat keyframeMat;
 
-  //for depth extraction
+  // for depth extraction
   DeviceImage<int> pixel_age_table;
   DeviceImage<float4> depth_fuse_seeds;
   SE3<float> this_fuse_worldpose;
@@ -169,18 +170,21 @@ private:
   int current_frames;
   std::deque<FrameElement> framelist_host;
 
-  //used for gpu remap
+  // used for gpu remap
   cv::Mat remap_1, remap_2;
   cv::Mat input_image;
   cv::Mat input_float;
   cv::Mat undistorted_image;
 
-  //result
+  // result
   cv::Mat cv_output;
   cv::Mat cv_debug;
   cv::Mat cv_epipolar;
+  // debug (look at input data)
+  cv::Mat cv_look[KEYFRAME_NUM];
+  float seq_output;
 
-  //camera model
+  // camera model
   PinholeCamera camera;
 };
 

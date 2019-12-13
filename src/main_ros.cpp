@@ -20,40 +20,36 @@
 #include <message_filters/subscriber.h>
 #include <message_filters/synchronizer.h>
 #include <message_filters/sync_policies/exact_time.h>
+#include <message_filters/sync_policies/approximate_time.h>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/PointCloud.h>
 #include <geometry_msgs/PoseStamped.h>
 
-#include <image_transport/image_transport.h>
+typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, geometry_msgs::PoseStamped> exact_policy;
 
-typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, geometry_msgs::TransformStamped> exact_policy;
-
-int main(int argc, char **argv) {
-    if (!quadmap::checkCudaDevice(argc, argv))
+int main(int argc, char **argv)
+{
+    if(!quadmap::checkCudaDevice(argc, argv))
         return EXIT_FAILURE;
 
     ros::init(argc, argv, "hybrid_mapping");
     ros::NodeHandle nh("~");
     quadmap::DepthmapNode dm_node(nh);
-    image_transport::Subscriber sub_;
-    message_filters::Synchronizer<exact_policy> sync_(exact_policy(1000));
-    message_filters::Subscriber<sensor_msgs::Image> image_sub_;
-    message_filters::Subscriber<geometry_msgs::PoseStamped> pose_sub_;
-
-    if (!dm_node.init()) {
+    if(!dm_node.init())
+    {
         ROS_ERROR("could not initialize DepthmapNode. Shutting down node...");
         return EXIT_FAILURE;
     }
-    ROS_INFO("Init ok.");
 
+    message_filters::Subscriber<sensor_msgs::Image> image_sub(nh, "image", 1000);
+    message_filters::Subscriber<geometry_msgs::PoseStamped> pose_sub(nh, "posestamped", 1000);
+    message_filters::Synchronizer<exact_policy> sync(exact_policy(1000), image_sub, pose_sub);
+    sync.registerCallback(boost::bind(&quadmap::DepthmapNode::Msg_Callback, &dm_node, _1, _2));
 
-    image_sub_.subscribe(nh, "image", 1000);
-    pose_sub_.subscribe(nh, "posestamped", 1000);
-    sync_.connectInput(image_sub_, pose_sub_);
-    sync_.registerCallback(boost::bind(&quadmap::DepthmapNode::Msg_Callback_tf, &dm_node, _1, _2));
-
-    while (ros::ok()) {
+    while(ros::ok())
+    {
         ros::spinOnce();
     }
+
     return EXIT_SUCCESS;
 }

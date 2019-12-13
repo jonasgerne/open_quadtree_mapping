@@ -70,6 +70,7 @@ public:
   const cv::Mat getReferenceImage() const;
   const cv::Mat getEpipolarImage() const;
   const cv::Mat getKeyframeImage() const;
+  float getSeq() const;
 
   float getFx() const
   { return fx_; }
@@ -112,6 +113,8 @@ private:
   cv::Mat debug_out;
   cv::Mat epipolar_out;
   cv::Mat keyframe_out;
+
+  float seq_output;
 };
 
 }

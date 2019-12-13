@@ -91,14 +91,16 @@ void quadmap::Publisher::publishDepthmap(ros::Time msg_time)
   cv_image_reference.encoding = sensor_msgs::image_encodings::MONO8;
   cv_image_reference.image = reference_mat;
 
+
   //color code the map
-  double min;
-  double max;
-  cv::minMaxIdx(depthmap_mat, &min, &max);
+  double minVal;
+  double maxVal;
+  double min, max;
+  cv::minMaxIdx(depthmap_mat, &minVal, &maxVal); // finds the global minimum and maximum values and their positions
   cv::Mat adjMap;
-  std::cout << "depthimage min max of the depth: " << min << " , " << max << std::endl;
-  min = 0.5; max = 10;
-  // min = 0; max = 65;
+  std::cout << "depthimage min max of the depth: " << minVal << " , " << maxVal << std::endl;
+  min = 1.0; max = 50;
+  // minVal = 0.0; maxVal = 0.0;
   // min = 10; max = 30;
   depthmap_mat.convertTo(adjMap,CV_8UC1, 255/(max-min), -min);
   cv::Mat falseColorsMap;
@@ -109,21 +111,56 @@ void quadmap::Publisher::publishDepthmap(ros::Time msg_time)
   // cv::cvtColor(reference_mat, black_image, cv::COLOR_GRAY2BGR);
   // cv::addWeighted( black_image, 0.5, falseColorsMap, 0.5, 0.0, falseColorsMap);
   black_image.copyTo(falseColorsMap, mask);
-  cv_image_colored.header.frame_id = "depthmap";
-  cv_image_colored.encoding = sensor_msgs::image_encodings::BGR8;
-  cv_image_colored.image = falseColorsMap;
 
-  if(nh_.ok())
-  {
-    cv_image.header.stamp = msg_time;
-    cv_image_colored.header.stamp = msg_time;
-    pub_depth.publish(cv_image.toImageMsg());
-    pub_color_depth.publish(cv_image_colored.toImageMsg());
 
-    cv_image_reference.header.stamp = msg_time;
-    pub_reference.publish(cv_image_reference.toImageMsg());
-    std::cout << "INFO: publishing depth map" << std::endl;
-  }
+    cv::Mat depthNorm, depthColor;
+    //cv::threshold(depthmap_mat, depthmap_mat, minDepth, minDepth, cv::THRESH_TOZERO);
+    //cv::threshold(depthmap_mat, depthmap_mat, maxDepth, maxDepth, cv::THRESH_TRUNC);
+    //cv::normalize(depthmap_mat, depthNorm, 0, 255, cv::NORM_MINMAX, CV_8U);
+    //cv::applyColorMap(depthNorm, depthColor, cv::COLORMAP_JET);
+    depthNorm = depthmap_mat.clone();
+    depthNorm = (depthNorm - min) / (max - min) * 255.0f;
+    depthNorm.convertTo(depthNorm, CV_8U);
+    cv::applyColorMap(depthNorm, depthColor, cv::COLORMAP_JET);
+    for (int i = 0; i < depthmap_mat.rows; i++) {
+        for (int j = 0; j < depthmap_mat.cols; j++) {
+            if (std::isnan(depthmap_mat.at<float>(i, j))) {
+                depthColor.at<cv::Vec3b>(i, j)[0] = 0;
+                depthColor.at<cv::Vec3b>(i, j)[1] = 0;
+                depthColor.at<cv::Vec3b>(i, j)[2] = 0;
+            }
+            if (depthmap_mat.at<float>(i, j) < min) {
+                depthColor.at<cv::Vec3b>(i, j)[0] = 0;
+                depthColor.at<cv::Vec3b>(i, j)[1] = 0;
+                depthColor.at<cv::Vec3b>(i, j)[2] = 0;
+            }
+            if (depthmap_mat.at<float>(i, j) > max) {
+                depthColor.at<cv::Vec3b>(i, j)[0] = 0;
+                depthColor.at<cv::Vec3b>(i, j)[1] = 0;
+                depthColor.at<cv::Vec3b>(i, j)[2] = 0;
+            }
+        }
+    }
+
+    cv_image_colored.header.frame_id = "depthmap";
+    cv_image_colored.encoding = sensor_msgs::image_encodings::BGR8;
+    cv_image_colored.image = depthColor;
+
+    char buffer[256];
+    sprintf(buffer, "/home/jonasgerstner/Pictures/test/%010d.png", int(depthmap_->getSeq()));
+    cv::imwrite(buffer, depthColor);
+
+    if(nh_.ok())
+    {
+        cv_image.header.stamp = msg_time;
+        cv_image_colored.header.stamp = msg_time;
+        pub_depth.publish(cv_image.toImageMsg());
+        pub_color_depth.publish(cv_image_colored.toImageMsg());
+
+        cv_image_reference.header.stamp = msg_time;
+        pub_reference.publish(cv_image_reference.toImageMsg());
+        std::cout << "INFO: publishing depth map" << std::endl;
+    }
 }
 
 void quadmap::Publisher::publishPointCloud(ros::Time msg_time)

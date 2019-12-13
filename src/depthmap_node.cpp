@@ -97,7 +97,7 @@ bool quadmap::DepthmapNode::init() {
     depthmap_ = std::make_shared<quadmap::Depthmap>(resize_width, resize_height, 4, resize_fx, resize_cx, resize_fy,
                                                     resize_cy, undist_map1, undist_map2, semi2dense_ratio,
                                                     false, false, false, false, false,
-                                                    true, 0.003f, 0.01f, true, 1.0, 50.0,
+                                                    true, 0.003f, 0.01f, false, 1.0, 50.0,
                                                     0.95f, 0.03f, 0.95f,
                                                     0.03f, 0.6, 0.45, 1.0f,
                                                     1.0f, 0.0f);
@@ -159,6 +159,7 @@ void quadmap::DepthmapNode::Msg_Callback_tf(
         cv_bridge::CvImageConstPtr cv_img_ptr =
                 cv_bridge::toCvShare(image_input, sensor_msgs::image_encodings::MONO8);
         img_8uC1 = cv_img_ptr->image;
+        img_8uC1.at<unsigned char>(0,0) = image_input->header.seq;
     }
     catch (cv_bridge::Exception &e) {
         ROS_ERROR("cv_bridge exception: %s", e.what());
@@ -198,6 +199,7 @@ void quadmap::DepthmapNode::imageCb(const sensor_msgs::ImageConstPtr &image_inpu
         cv_bridge::CvImageConstPtr cv_img_ptr =
                 cv_bridge::toCvShare(image_input, sensor_msgs::image_encodings::MONO8);
         img_8uC1 = cv_img_ptr->image;
+        img_8uC1.at<unsigned char>(0,0) = image_input->header.seq;
     }
     catch (cv_bridge::Exception &e) {
         ROS_ERROR("cv_bridge exception: %s", e.what());
@@ -212,6 +214,7 @@ void quadmap::DepthmapNode::imageCb(const sensor_msgs::ImageConstPtr &image_inpu
             tf_listener_.lookupTransform("world", tf_goal_frame_, current_msg_time, transform);
             success = true;
             ROS_INFO("Timestep: %lf", current_msg_time.toSec());
+            break;
         } catch (tf::ExtrapolationException &e) {
             // avoid getting "Lookup would require extrapolation into the future." error
             ++count;
