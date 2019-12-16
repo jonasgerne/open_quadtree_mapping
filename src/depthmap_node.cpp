@@ -32,7 +32,6 @@ using namespace std;
 
 quadmap::DepthmapNode::DepthmapNode(ros::NodeHandle &nh)
         : nh_(nh), num_msgs_(0)
-//  , it_(nh_)
 {}
 
 bool quadmap::DepthmapNode::init() {
@@ -45,6 +44,30 @@ bool quadmap::DepthmapNode::init() {
     double downsample_factor;
     int semi2dense_ratio;
     std::string tf_goal_frame_;
+    bool do_belief_propagation;
+    bool use_quadtree;
+    bool do_fusion;
+    bool do_global_upsampling;
+    bool inverse_depth;
+    bool fix_near_point;
+    int cost_downsampling; // 4 (original)
+    float min_inlier_ratio_good; // 0.6 (original)
+    float min_inlier_ratio_bad; // 0.45 (original)
+    float prev_variance_factor; // 1.0f (original)
+    float new_variance_factor; // 1.0f (original)
+    float variance_offset; // 0.0f (original)
+    float min_depth;
+    float max_depth;
+
+    float new_keyframe_max_distance;
+    float new_keyframe_max_angle;
+    float new_reference_max_distance;
+    float new_reference_max_angle;
+
+    // P1 and P2 control the smoothness of the depth maps as that in SGM, paper p. 4
+    float p1;
+    float p2;
+
     nh_.getParam("cam_width", cam_width);
     nh_.getParam("cam_height", cam_height);
     nh_.getParam("cam_fx", cam_fx);
@@ -55,19 +78,35 @@ bool quadmap::DepthmapNode::init() {
     nh_.getParam("downsample_factor", downsample_factor);
     nh_.getParam("semi2dense_ratio", semi2dense_ratio);
 
+    nh_.param("cost_downsampling", cost_downsampling, 4);
+    nh_.param("doBeliefPropagation", do_belief_propagation, false);
+    nh_.param("useQuadtree", use_quadtree, false);
+    nh_.param("doFusion", do_fusion, false);
+    nh_.param("doGlobalUpsampling", do_global_upsampling, false);
+    nh_.param("inverse_depth", inverse_depth, false);
+    nh_.param("fixNearPoint", fix_near_point, false);
+
     printf("read : width %d height %d\n", cam_width, cam_height);
 
     float k1, k2, r1, r2;
-    k1 = k2 = r1 = r2 = 0.0;
-    if (nh_.hasParam("cam_k1") &&
-        nh_.hasParam("cam_k2") &&
-        nh_.hasParam("cam_r1") &&
-        nh_.hasParam("cam_r2")) {
-        nh_.getParam("cam_k1", k1);
-        nh_.getParam("cam_k2", k2);
-        nh_.getParam("cam_r1", r1);
-        nh_.getParam("cam_r2", r2);
-    }
+    nh_.param("cam_k1", k1, 0.0f);
+    nh_.param("cam_k2", k2, 0.0f);
+    nh_.param("cam_r1", r1, 0.0f);
+    nh_.param("cam_r2", r2, 0.0f);
+
+    nh_.param("min_inlier_ratio_good", min_inlier_ratio_good, 0.6f);
+    nh_.param("min_inlier_ratio_bad", min_inlier_ratio_bad, 0.45f);
+    nh_.param("prev_variance_factor", prev_variance_factor, 1.0f);
+    nh_.param("new_variance_factor", new_variance_factor, 1.0f);
+    nh_.param("variance_offset", variance_offset, 0.0f);
+    nh_.param("min_depth", min_depth, 1.0f);
+    nh_.param("max_depth", max_depth, 50.0f);
+    nh_.param("new_keyframe_max_distance", new_keyframe_max_distance, 0.03f);
+    nh_.param("new_keyframe_max_angle", new_keyframe_max_angle, 0.86f);
+    nh_.param("new_reference_max_distance", new_reference_max_distance, 0.03f);
+    nh_.param("new_reference_max_angle", new_reference_max_angle, 0.95f);
+    nh_.param("p1", p1, 0.5f);
+    nh_.param("p2", p2, 4.0f);
 
     // initial the remap mat, it is used for undistort and also resive the image
     cv::Mat input_K = (cv::Mat_<float>(3, 3) << cam_fx, 0.0f, cam_cx, 0.0f, cam_fy, cam_cy, 0.0f, 0.0f, 1.0f);
@@ -94,13 +133,13 @@ bool quadmap::DepthmapNode::init() {
             CV_32FC1,
             undist_map1, undist_map2);
 
-    depthmap_ = std::make_shared<quadmap::Depthmap>(resize_width, resize_height, 4, resize_fx, resize_cx, resize_fy,
+    depthmap_ = std::make_shared<quadmap::Depthmap>(resize_width, resize_height, cost_downsampling, resize_fx, resize_cx, resize_fy,
                                                     resize_cy, undist_map1, undist_map2, semi2dense_ratio,
-                                                    false, false, false, false, false,
-                                                    true, 0.003f, 0.01f, false, 1.0, 50.0,
-                                                    0.95f, 0.03f, 0.95f,
-                                                    0.03f, 0.6, 0.45, 1.0f,
-                                                    1.0f, 0.0f);
+                                                    do_belief_propagation, use_quadtree, do_fusion, do_global_upsampling, fix_near_point,
+                                                    true, p1, p2, inverse_depth, min_depth, max_depth,
+                                                    new_keyframe_max_angle, new_keyframe_max_distance, new_reference_max_angle,
+                                                    new_reference_max_distance, min_inlier_ratio_good, min_inlier_ratio_bad, new_variance_factor,
+                                                    prev_variance_factor, variance_offset);
 
     bool pub_pointcloud = false;
     nh_.getParam("publish_pointcloud", pub_pointcloud);

@@ -76,41 +76,39 @@ void quadmap::Publisher::publishDebugmap(ros::Time msg_time)
   pub_debug.publish(cv_debug.toImageMsg());
 }
 
-void quadmap::Publisher::publishDepthmap(ros::Time msg_time)
-{
-  cv::Mat depthmap_mat;
-  cv::Mat reference_mat;
-  cv_bridge::CvImage cv_image, cv_image_colored, cv_image_reference;
-  cv_image.header.frame_id = "depthmap";
-  cv_image.encoding = sensor_msgs::image_encodings::TYPE_32FC1;
-  depthmap_mat = depthmap_->getDepthmap();
-  reference_mat = depthmap_->getReferenceImage();
-  cv_image.image = depthmap_mat;
+void quadmap::Publisher::publishDepthmap(ros::Time msg_time) {
+    cv::Mat depthmap_mat;
+    cv::Mat reference_mat;
+    cv_bridge::CvImage cv_image, cv_image_colored, cv_image_reference;
+    cv_image.header.frame_id = "depthmap";
+    cv_image.encoding = sensor_msgs::image_encodings::TYPE_32FC1;
+    depthmap_mat = depthmap_->getDepthmap();
+    reference_mat = depthmap_->getReferenceImage();
+    cv_image.image = depthmap_mat;
 
-  cv_image_reference.header.frame_id = "reference_mat";
-  cv_image_reference.encoding = sensor_msgs::image_encodings::MONO8;
-  cv_image_reference.image = reference_mat;
+    cv_image_reference.header.frame_id = "reference_mat";
+    cv_image_reference.encoding = sensor_msgs::image_encodings::MONO8;
+    cv_image_reference.image = reference_mat;
 
 
-  //color code the map
-  double minVal;
-  double maxVal;
-  double min, max;
-  cv::minMaxIdx(depthmap_mat, &minVal, &maxVal); // finds the global minimum and maximum values and their positions
-  cv::Mat adjMap;
-  std::cout << "depthimage min max of the depth: " << minVal << " , " << maxVal << std::endl;
-  min = 1.0; max = 50;
-  // minVal = 0.0; maxVal = 0.0;
-  // min = 10; max = 30;
-  depthmap_mat.convertTo(adjMap,CV_8UC1, 255/(max-min), -min);
-  cv::Mat falseColorsMap;
-  cv::applyColorMap(adjMap, falseColorsMap, cv::COLORMAP_RAINBOW);
-  cv::Mat mask;
-  cv::inRange(falseColorsMap, cv::Scalar(0, 0, 255), cv::Scalar(0, 0, 255), mask);
-  cv::Mat black_image = cv::Mat::zeros(falseColorsMap.size(), CV_8UC3);
-  // cv::cvtColor(reference_mat, black_image, cv::COLOR_GRAY2BGR);
-  // cv::addWeighted( black_image, 0.5, falseColorsMap, 0.5, 0.0, falseColorsMap);
-  black_image.copyTo(falseColorsMap, mask);
+    //color code the map
+    double minVal;
+    double maxVal;
+    double min, max;
+    cv::minMaxIdx(depthmap_mat, &minVal, &maxVal); // finds the global minimum and maximum values and their positions
+    cv::Mat adjMap;
+    std::cout << "depthimage min max of the depth: " << minVal << " , " << maxVal << std::endl;
+    min = 1.0;
+    max = 50;
+    depthmap_mat.convertTo(adjMap, CV_8UC1, 255 / (max - min), -min);
+    cv::Mat falseColorsMap;
+    cv::applyColorMap(adjMap, falseColorsMap, cv::COLORMAP_RAINBOW);
+    cv::Mat mask;
+    cv::inRange(falseColorsMap, cv::Scalar(0, 0, 255), cv::Scalar(0, 0, 255), mask);
+    cv::Mat black_image = cv::Mat::zeros(falseColorsMap.size(), CV_8UC3);
+    // cv::cvtColor(reference_mat, black_image, cv::COLOR_GRAY2BGR);
+    // cv::addWeighted( black_image, 0.5, falseColorsMap, 0.5, 0.0, falseColorsMap);
+    black_image.copyTo(falseColorsMap, mask);
 
 
     cv::Mat depthNorm, depthColor;
@@ -150,8 +148,7 @@ void quadmap::Publisher::publishDepthmap(ros::Time msg_time)
     sprintf(buffer, "/home/jonasgerstner/Pictures/test/%010d.png", int(depthmap_->getSeq()));
     cv::imwrite(buffer, depthColor);
 
-    if(nh_.ok())
-    {
+    if (nh_.ok()) {
         cv_image.header.stamp = msg_time;
         cv_image_colored.header.stamp = msg_time;
         pub_depth.publish(cv_image.toImageMsg());
@@ -185,7 +182,7 @@ void quadmap::Publisher::publishPointCloud(ros::Time msg_time)
       for(int x=0; x<depth.cols; ++x)
       {
         float depth_value = depth.at<float>(y, x);
-        if(depth_value < 0.1)
+        if(depth_value < 1.0)
           continue;
         const float3 f = normalize( make_float3((x-cx)/fx, (y-cy)/fy, 1.0f) );
         const float3 xyz = T_world_ref * ( f * depth_value );

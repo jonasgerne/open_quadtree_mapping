@@ -67,7 +67,7 @@ quadmap::SeedMatrix::SeedMatrix(
     cv_debug.create(height, width, CV_32FC1);
     cv_epipolar.create(height, width, CV_32FC4);
 #ifdef DEBUG_PRINT
-    // debug Jonas:
+    // inspect current pictures
     for (int i = 0; i < KEYFRAME_NUM; ++i)
         cv_look[i].create(height, width, CV_32FC1);
 #endif
