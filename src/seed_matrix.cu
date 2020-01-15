@@ -447,7 +447,7 @@ void quadmap::SeedMatrix::create_new_keyframe_async() {
             //check gradient and color
             float2 new_gradient = income_gradient_hostptr[new_y * width + new_x];
             float new_gradient_2 = dot(new_gradient, new_gradient);
-            if (new_gradient_2 < MIN_GRAIDIENT * MIN_GRAIDIENT)
+            if (new_gradient_2 < MIN_GRADIENT * MIN_GRADIENT)
                 continue;
             int diff_color = keyframeMat.at<uchar>(height_i, width_i) - income_undistort.at<uchar>(new_y, new_x);
             if (diff_color * diff_color > (MAX_DIFF_CONSTANT + MAX_DIFF_GRAD_MULT * new_gradient_2))

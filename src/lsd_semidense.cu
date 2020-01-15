@@ -19,7 +19,7 @@ __global__ void initialize_keyframe_kernel(DeviceImage<DepthSeed> *new_keyframe_
 	float2 this_gradient = tex2D(income_gradient_tex, x + 0.5f, y + 0.5f);
 	float gradient_mag_2 = dot(this_gradient, this_gradient);
 
-	if (gradient_mag_2 < MIN_GRAIDIENT * MIN_GRAIDIENT)
+	if (gradient_mag_2 < MIN_GRADIENT * MIN_GRADIENT)
 		return;
 
 	DepthSeed initialized_seed;
@@ -82,7 +82,7 @@ __global__ void propogate_keyframe_kernel(
 	//check gradient
 	float2 new_gradient = tex2D(income_gradient_tex, new_x + 0.5, new_y + 0.5);
 	float new_gradient_2 = dot(new_gradient, new_gradient);
-	if( new_gradient_2 < MIN_GRAIDIENT * MIN_GRAIDIENT)
+	if( new_gradient_2 < MIN_GRADIENT * MIN_GRADIENT)
 		return;
 
 	float old_color = tex2D(keyframe_image_tex, x+0.5, y+0.5);
@@ -175,7 +175,7 @@ __global__ void depth_project_kernel(
 	// ///*check gradient*///
 	float2 new_gradient = tex2D(income_gradient_tex, new_x + 0.5, new_y + 0.5);
 	float new_gradient_2 = dot(new_gradient, new_gradient);
-	if( new_gradient_2 < MIN_GRAIDIENT * MIN_GRAIDIENT)
+	if( new_gradient_2 < MIN_GRADIENT * MIN_GRADIENT)
 		return;
 
     // Check color difference
@@ -231,7 +231,7 @@ __global__ void depth_project_kernel(
 	// ///*check gradient*///
 	float2 new_gradient = tex2D(income_gradient_tex, new_x + 0.5, new_y + 0.5);
 	float new_gradient_2 = dot(new_gradient, new_gradient);
-	if( new_gradient_2 < MIN_GRAIDIENT * MIN_GRAIDIENT)
+	if( new_gradient_2 < MIN_GRADIENT * MIN_GRADIENT)
 		return;
 
 	float old_color = tex2D(keyframe_image_tex, x+0.5, y+0.5);
@@ -328,7 +328,7 @@ __global__ void regulizeDepth_FillHoles_kernel(DeviceImage<DepthSeed> *keyframe_
 	float2 this_gradient = tex2D(income_gradient_tex, x + 0.5, y + 0.5);
 	float gradient_mag_2 = dot(this_gradient, this_gradient);
 
-	if (gradient_mag_2 < MIN_GRAIDIENT * MIN_GRAIDIENT)
+	if (gradient_mag_2 < MIN_GRADIENT * MIN_GRADIENT)
 		return;
 
 	// Skip if valid
@@ -382,7 +382,7 @@ __global__ void update_keyframe_kernel(DeviceImage<DepthSeed> *keyframe_devptr, 
 	float2 this_gradient = tex2D(keyframe_gradient_tex, x + 0.5, y + 0.5);
 	float gradient_max = length(this_gradient);
 
-	if (gradient_max < MIN_GRAIDIENT)
+	if (gradient_max < MIN_GRADIENT)
 		return;
 
 	DepthSeed depthseed = keyframe_devptr->atXY(x,y);

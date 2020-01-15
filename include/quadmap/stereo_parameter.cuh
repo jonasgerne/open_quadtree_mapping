@@ -6,7 +6,7 @@
 // Adjusted
 //#define MAX_DEP 10.0
 //#define MIN_DEP 0.5
-#define MIN_GRAIDIENT 5
+#define MIN_GRADIENT 5
 //#define MIN_INV_DEPTH 1.0/MAX_DEP
 //#define MAX_INV_DEPTH 1.0/MIN_DEP
 //#define STEP_INV_DEPTH (MAX_INV_DEPTH-MIN_INV_DEPTH)/63.0
