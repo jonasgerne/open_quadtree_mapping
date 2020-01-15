@@ -143,7 +143,7 @@ bool quadmap::DepthmapNode::init() {
 
     bool pub_pointcloud = false;
     nh_.getParam("publish_pointcloud", pub_pointcloud);
-    publisher_.reset(new quadmap::Publisher(nh_, depthmap_));
+    publisher_.reset(new quadmap::Publisher(nh_, depthmap_, min_depth, max_depth));
 
     return true;
 }

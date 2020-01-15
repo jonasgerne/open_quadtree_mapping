@@ -38,9 +38,13 @@ class Publisher
 public:
 
   Publisher(ros::NodeHandle &nh,
-            std::shared_ptr<quadmap::Depthmap> depthmap);
+            std::shared_ptr<quadmap::Depthmap> depthmap,
+            double minDepth,
+            double maxDepth);
 
   void publishDepthmap(ros::Time msg_time);
+  void publishDepthmap_old(ros::Time msg_time);
+  void NikoPublisher(ros::Time msg_time);
   void publishDebugmap(ros::Time msg_time);
 
   void publishPointCloud(ros::Time msg_time);
@@ -54,6 +58,7 @@ private:
   //for save image
   int save_index;
   std::string save_path;
+  bool new_publisher_;
 
   PointCloud::Ptr pc;
   ros::Publisher pub_pc;
@@ -63,6 +68,9 @@ private:
   ros::Publisher pub_reference;
 
   cv::Mat colored_;
+
+  double minDepth_;
+  double maxDepth_;
 };
 
 }
