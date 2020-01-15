@@ -66,7 +66,6 @@ bool quadmap::Depthmap::add_frames( const cv::Mat &img_curr,
 {
   bool has_result;
   has_result = seeds_.input_raw(img_curr, T_curr_world);
-  printf("here");
   if(has_result)
   {
     seeds_.get_result(depth_out, debug_out, reference_out, epipolar_out, keyframe_out, seq_output);

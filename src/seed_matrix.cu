@@ -150,19 +150,6 @@ void quadmap::SeedMatrix::add_income_image(const cv::Mat &input_image, const SE3
     // DEBUG: enumerate incoming images
     income_seq = input_image.at<float>(0, 0);
     generate_gradient(income_image, income_gradient);
-
-    /*cv::Mat grad(input_image.rows, input_image.cols, CV_32FC2);
-    income_gradient.getDevData((float2*)grad.data);
-    cv::Mat channels[2];
-    cv::split(grad, channels);
-    cv::Mat norm, color;
-    cv::normalize(channels[0], norm, 0, 255, CV_MINMAX, CV_8U);
-    cv::applyColorMap(norm, color, cv::COLORMAP_JET);
-    cv::imshow("Gradient X", color);
-    cv::normalize(channels[1], norm, 0, 255, CV_MINMAX, CV_8U);
-    cv::applyColorMap(norm, color, cv::COLORMAP_JET);
-    cv::imshow("Gradient Y", color);
-    cv::waitKey();*/
 }
 
 void quadmap::SeedMatrix::set_income_as_keyframe() {
@@ -248,7 +235,7 @@ bool quadmap::SeedMatrix::add_frames(
 
     // for full dense
     bool has_depth_output = false;
-    if (framelist_host.size() > KEYFRAME_NUM - 3) {
+    if (framelist_host.size() >= KEYFRAME_NUM) {// KEYFRAME_NUM - 3) {
         // Compute depth from multi-view-stereo using quadtree and belief propagation
         extract_depth();
         has_depth_output = true;

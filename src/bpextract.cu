@@ -337,8 +337,8 @@ __global__ void bp(
     // Normalize min cost by subtracting mean cost
     min_cost = min_cost - raw_cost[dir][0] / (float) DEPTH_NUM;
 
-    if((x == 525) && (y == 25) && (dir == 0))
-        printf("%d: min cost %f\n", depth_id, min_cost);
+    //if((x == 525) && (y == 25) && (dir == 0))
+      //  printf("%d: min cost %f\n", depth_id, min_cost);
 
     // Copy final message for direction
     if(dir == 0) //up

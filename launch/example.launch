@@ -13,7 +13,17 @@
     <param name="cam_r2" value="-2.4563568486974763e-04"/>
     <!--downsample factor: 0 ~ 1-->
     <param name="downsample_factor" value="1"/>
-    <param name="semi2dense_ratio" value="1"/>
+    <param name="semi2dense_ratio" value="3"/>
+    <param name="cost_downsampling" value="4"/>
+    <param name="doBeliefPropagation" value="true"/>
+    <param name="useQuadtree" value="true"/>
+    <param name="doFusion" value="true"/>
+    <param name="doGlobalUpsampling" value="true"/>
+    <param name="inverse_depth" value="true"/>
+    <param name="fixNearPoint" value="true"/> 
+    <param name="min_depth" value="0.5"/>
+    <param name="max_depth" value="100.0"/>
+    <param name="pub_pointcloud" value="true"/>
 
     <!-- if using synchronize image and pose-->
     <remap from="~image" to="/mv_25001498/image_raw" />

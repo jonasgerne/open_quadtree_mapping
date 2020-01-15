@@ -11,6 +11,13 @@
         <!--downsample factor: 0 ~ 1-->
     <param name="downsample_factor" value="1"/>
     <param name="semi2dense_ratio" value="5"/>
+    <param name="min_depth" value="1.0"/>
+    <param name="max_depth" value="50.0" />
+    <param name="doFusion" value="true" />
+    <param name="doBeliefPropagation" value="true" />
+    <param name="p1" value="0.003" />
+    <param name="p2" value="0.01" />
+    <param name="min_inlier_ratio_good" value="0.49" />
 
     <param name="use_tf_transforms" value="true" />
 

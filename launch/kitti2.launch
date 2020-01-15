@@ -1,0 +1,44 @@
+<!-- This launch file is optimized for the 2011_09_26_drive_0095_sync sequence -->
+<launch>
+  <param name="use_sim_time" value="true" /> <!-- avoid getting TF_OLD_DATA error when looping through t= 0.00-->
+  <node pkg="open_quadtree_mapping" type="open_quadtree_mapping_tf_node" name="open_quadtree_mapping" clear_params="true" output="screen" >
+
+    <param name="cam_width" value="1242" />
+    <param name="cam_height" value="375" />
+    <param name="cam_fx" value="7.215377e+02" />
+    <param name="cam_cx" value="6.095593e+02" />
+    <param name="cam_fy" value="7.215377e+02" />
+    <param name="cam_cy" value="1.728540e+02" />
+        <!--downsample factor: 0 ~ 1-->
+    <param name="downsample_factor" value="0.5"/>
+    <param name="doBeliefPropagation" value="true" />
+    <param name="useQuadtree" value="false" />
+    <param name="doFusion" value="true" />
+    <param name="doGlobalUpsampling" value="false" />
+    <param name="semi2dense_ratio" value="1" />
+    <param name="cost_downsampling" value="4" />
+    <param name="min_inlier_ratio_good" value="0.5" />
+    <param name="min_inlier_ratio_bad" value="0.45" />
+    <param name="prev_variance_factor" value="1.0" />
+    <param name="new_variance_factor" value="1.0" />
+    <param name="variance_offset" value="0.0" />
+    <param name="min_depth" value="1.0"/>
+    <param name="max_depth" value="50.0" />
+    <param name="inverse_depth" value="false" />
+    <param name="new_keyframe_max_distance" value="0.5" />
+    <param name="new_keyframe_max_angle" value="10.0" />
+    <param name="p1" value="0.003" />
+    <param name="p2" value="0.01" />
+
+    <param name="new_reference_max_distance" value="0.5" />
+
+    <param name="new_publisher" value="true" />
+
+    <param name="use_tf_transforms" value="false" />
+
+    <!-- if using synchronize image and pose-->
+    <remap from="~image" to="/cam02/image_raw" />
+    <remap from="~posestamped" to="/transform_imu" />
+
+  </node>
+</launch>

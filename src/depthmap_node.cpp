@@ -41,7 +41,7 @@ bool quadmap::DepthmapNode::init() {
     float cam_fy;
     float cam_cx;
     float cam_cy;
-    double downsample_factor;
+    float downsample_factor;
     int semi2dense_ratio;
     std::string tf_goal_frame_;
     bool do_belief_propagation;
@@ -78,7 +78,7 @@ bool quadmap::DepthmapNode::init() {
     nh_.getParam("downsample_factor", downsample_factor);
     nh_.getParam("semi2dense_ratio", semi2dense_ratio);
 
-    nh_.param("cost_downsampling", cost_downsampling, 4);
+    nh_.param("cost_downsampling", cost_downsampling, 4); // this parameter is fixed in code in the original version
     nh_.param("doBeliefPropagation", do_belief_propagation, false);
     nh_.param("useQuadtree", use_quadtree, false);
     nh_.param("doFusion", do_fusion, false);
@@ -99,14 +99,18 @@ bool quadmap::DepthmapNode::init() {
     nh_.param("prev_variance_factor", prev_variance_factor, 1.0f);
     nh_.param("new_variance_factor", new_variance_factor, 1.0f);
     nh_.param("variance_offset", variance_offset, 0.0f);
-    nh_.param("min_depth", min_depth, 1.0f);
-    nh_.param("max_depth", max_depth, 50.0f);
+    nh_.param("min_depth", min_depth, 0.5f);
+    nh_.param("max_depth", max_depth, 100.0f);
     nh_.param("new_keyframe_max_distance", new_keyframe_max_distance, 0.03f);
-    nh_.param("new_keyframe_max_angle", new_keyframe_max_angle, 0.86f);
+    nh_.param("new_keyframe_max_angle", new_keyframe_max_angle, 10.0f);
     nh_.param("new_reference_max_distance", new_reference_max_distance, 0.03f);
-    nh_.param("new_reference_max_angle", new_reference_max_angle, 0.95f);
-    nh_.param("p1", p1, 0.5f);
-    nh_.param("p2", p2, 4.0f);
+    nh_.param("new_reference_max_angle", new_reference_max_angle, 5.0f);
+    nh_.param("p1", p1, 0.003f); // control the smoothness of the depthmap
+    nh_.param("p2", p2, 0.01f);
+
+    // convert angle to cos
+    new_keyframe_max_angle = cos(new_keyframe_max_angle / 180.0f * M_PI);
+    new_reference_max_angle = cos(new_reference_max_angle / 180.0f * M_PI);
 
     // initial the remap mat, it is used for undistort and also resive the image
     cv::Mat input_K = (cv::Mat_<float>(3, 3) << cam_fx, 0.0f, cam_cx, 0.0f, cam_fy, cam_cy, 0.0f, 0.0f, 1.0f);
