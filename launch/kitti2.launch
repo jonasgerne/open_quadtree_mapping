@@ -32,7 +32,7 @@
 
     <param name="new_reference_max_distance" value="0.5" />
 
-    <param name="new_publisher" value="true" />
+    <param name="debug_to_folder" value="true" />
 
     <param name="use_tf_transforms" value="false" />
 

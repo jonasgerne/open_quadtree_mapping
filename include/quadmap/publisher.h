@@ -43,8 +43,6 @@ public:
             double maxDepth);
 
   void publishDepthmap(ros::Time msg_time);
-  void publishDepthmap_old(ros::Time msg_time);
-  void NikoPublisher(ros::Time msg_time);
   void publishDebugmap(ros::Time msg_time);
 
   void publishPointCloud(ros::Time msg_time);
@@ -55,9 +53,7 @@ private:
   ros::NodeHandle &nh_;
   std::shared_ptr<quadmap::Depthmap> depthmap_;
 
-  //for save image
-  int save_index;
-  std::string save_path;
+  std::string save_path_;
   bool new_publisher_;
 
   PointCloud::Ptr pc;
@@ -71,6 +67,8 @@ private:
 
   double minDepth_;
   double maxDepth_;
+
+  bool debug_to_folder_;
 };
 
 }
