@@ -3,12 +3,12 @@
   <node pkg="tf2_ros" type="static_transform_publisher" name="left_broadcaster" args="0 0 0 -0.5 0.5 -0.5 0.5 /ego_vehicle/camera/rgb/left /camera_left" />
   <node pkg="open_quadtree_mapping" type="open_quadtree_mapping_tf_node" name="open_quadtree_mapping" clear_params="true" output="screen" >
 
-    <param name="cam_width" value="621" />
-    <param name="cam_height" value="187" />
-    <param name="cam_fx" value="310.50000000000006" />
-    <param name="cam_cx" value="310.5" />
-    <param name="cam_fy" value="310.50000000000006" />
-    <param name="cam_cy" value="93.5" />
+    <param name="cam_width" value="1242" />
+    <param name="cam_height" value="376" />
+    <param name="cam_fx" value="620.5000000000001" />
+    <param name="cam_cx" value="620.5" />
+    <param name="cam_fy" value="620.5000000000001" />
+    <param name="cam_cy" value="188.0" />
     <!--downsample factor: 0 ~ 1-->
     <param name="downsample_factor" value="1"/>
     <param name="doBeliefPropagation" value="true" />
@@ -35,6 +35,8 @@
     <param name="debug_to_folder" value="false" />
 
     <param name="use_tf_lookup" value="false" />
+    <param name="target_frame" value="/ego_vehicle" />
+    <param name="source_frame" value="/camera_left" />
 
     <!-- if using synchronize image and pose-->
     <remap from="~posestamped" to="/transform_center" />

@@ -1,4 +1,5 @@
-<!-- This launch file is optimized for the 2011_09_26_drive_0095_sync sequence -->
+<!-- This launch file is 'optimized' for the 2011_09_26_drive_0095_sync sequence
+use KEYFRAME_NUM 5-->
 <launch>
   <param name="use_sim_time" value="true" /> <!-- avoid getting TF_OLD_DATA error when looping through t= 0.00-->
   <node pkg="open_quadtree_mapping" type="open_quadtree_mapping_tf_node" name="open_quadtree_mapping" clear_params="true" output="screen" >
@@ -17,7 +18,7 @@
     <param name="doGlobalUpsampling" value="false" />
     <param name="semi2dense_ratio" value="1" />
     <param name="cost_downsampling" value="4" />
-    <param name="min_inlier_ratio_good" value="0.5" />
+    <param name="min_inlier_ratio_good" value="0.51" />
     <param name="min_inlier_ratio_bad" value="0.45" />
     <param name="prev_variance_factor" value="1.0" />
     <param name="new_variance_factor" value="1.0" />
@@ -34,7 +35,7 @@
 
     <param name="debug_to_folder" value="true" />
 
-    <param name="use_tf_transforms" value="false" />
+    <param name="use_tf_lookup" value="false" />
 
     <!-- if using synchronize image and pose-->
     <remap from="~image" to="/cam02/image_raw" />
