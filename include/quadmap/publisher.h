@@ -54,7 +54,7 @@ private:
   std::shared_ptr<quadmap::Depthmap> depthmap_;
 
   std::string save_path_;
-  bool new_publisher_;
+  std::string default_path_;
 
   PointCloud::Ptr pc;
   ros::Publisher pub_pc;

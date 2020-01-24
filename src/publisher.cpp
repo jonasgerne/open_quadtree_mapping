@@ -27,66 +27,64 @@
 #include <glob.h>
 
 quadmap::Publisher::Publisher(ros::NodeHandle &nh,
-                          std::shared_ptr<quadmap::Depthmap> depthmap,
-                          double minDepth,
-                          double maxDepth)
-  : nh_(nh),
-  pc(new PointCloud),
-  minDepth_(minDepth),
-  maxDepth_(maxDepth)
-{
-  depthmap_ = depthmap;
-  colored_.create(depthmap->getHeight(), depthmap_->getWidth(), CV_8UC3);
-  pub_pc = nh_.advertise<PointCloud>("pointcloud", 1);
+                              std::shared_ptr<quadmap::Depthmap> depthmap,
+                              double minDepth,
+                              double maxDepth)
+        : nh_(nh),
+          pc(new PointCloud),
+          minDepth_(minDepth),
+          maxDepth_(maxDepth) {
+    depthmap_ = depthmap;
+    colored_.create(depthmap->getHeight(), depthmap_->getWidth(), CV_8UC3);
+    pub_pc = nh_.advertise<PointCloud>("pointcloud", 1);
 
-  std::string default_path_("~/Pictures/DebugQuadtreeMapping");
+    std::string default_path_("~/Pictures/DebugQuadtreeMapping");
 
-  // Compiler requires hint for string type: http://wiki.ros.org/roscpp_tutorials/Tutorials/Parameters#param.28.29
-  nh_.param<std::string>("save_path", save_path_, default_path_);
-  nh_.param("debug_to_folder", debug_to_folder_, false);
+    // Compiler requires hint for string type: http://wiki.ros.org/roscpp_tutorials/Tutorials/Parameters#param.28.29
+    nh_.param<std::string>("save_path", save_path_, default_path_);
+    nh_.param("debug_to_folder", debug_to_folder_, false);
 
-  pub_color_depth = nh_.advertise<sensor_msgs::Image>("color_depth", 1);
-  pub_depth       = nh_.advertise<sensor_msgs::Image>("depth", 1);
-  pub_debug       = nh_.advertise<sensor_msgs::Image>("debug", 1);
-  pub_reference   = nh_.advertise<sensor_msgs::Image>("reference", 1);;
+    pub_color_depth = nh_.advertise<sensor_msgs::Image>("color_depth", 1);
+    pub_depth = nh_.advertise<sensor_msgs::Image>("depth", 1);
+    pub_debug = nh_.advertise<sensor_msgs::Image>("debug", 1);
+    pub_reference = nh_.advertise<sensor_msgs::Image>("reference", 1);;
 
-  if (save_path_ == default_path_){
-      glob_t globbuf;
-      int err = glob(save_path_.c_str(), GLOB_TILDE, NULL, &globbuf);
-      if (err == 0)
-          save_path_ = globbuf.gl_pathv[0];
-      globfree(&globbuf);
-  }
+    if (save_path_ == default_path_) {
+        glob_t globbuf;
+        int err = glob(save_path_.c_str(), GLOB_TILDE, NULL, &globbuf);
+        if (err == 0)
+            save_path_ = globbuf.gl_pathv[0];
+        globfree(&globbuf);
+    }
 }
 
-void quadmap::Publisher::publishDebugmap(ros::Time msg_time)
-{
-  cv::Mat debug_mat;
-  cv_bridge::CvImage cv_debug;
-  debug_mat = depthmap_->getDebugmap();
+void quadmap::Publisher::publishDebugmap(ros::Time msg_time) {
+    cv::Mat debug_mat;
+    cv_bridge::CvImage cv_debug;
+    debug_mat = depthmap_->getDebugmap();
 
 
-  double min;
-  double max;
-  cv::minMaxIdx(debug_mat, &min, &max);
-  max = 10;
-  min = 0;
-  cv::Mat adjMap;
-  debug_mat.convertTo(adjMap, CV_8UC1, 255 / (max-min), -min);
-  cv::Mat falseColorsMap;
-  cv::applyColorMap(adjMap, falseColorsMap, cv::COLORMAP_RAINBOW);
+    double min;
+    double max;
+    cv::minMaxIdx(debug_mat, &min, &max);
+    max = 10;
+    min = 0;
+    cv::Mat adjMap;
+    debug_mat.convertTo(adjMap, CV_8UC1, 255 / (max - min), -min);
+    cv::Mat falseColorsMap;
+    cv::applyColorMap(adjMap, falseColorsMap, cv::COLORMAP_RAINBOW);
 
-  cv::Mat reference_mat;
-  reference_mat = depthmap_->getReferenceImage();
-  cv::Mat black_image;
-  cv::cvtColor(reference_mat, black_image, cv::COLOR_GRAY2BGR);
-  // cv::addWeighted( black_image, 0.5, falseColorsMap, 0.5, 0.0, falseColorsMap);
-  
-  cv_debug.header.frame_id = "debug_mat";
-  cv_debug.encoding = sensor_msgs::image_encodings::BGR8;
-  cv_debug.image = falseColorsMap;
-  cv_debug.header.stamp = msg_time;
-  pub_debug.publish(cv_debug.toImageMsg());
+    cv::Mat reference_mat;
+    reference_mat = depthmap_->getReferenceImage();
+    cv::Mat black_image;
+    cv::cvtColor(reference_mat, black_image, cv::COLOR_GRAY2BGR);
+    // cv::addWeighted( black_image, 0.5, falseColorsMap, 0.5, 0.0, falseColorsMap);
+
+    cv_debug.header.frame_id = "debug_mat";
+    cv_debug.encoding = sensor_msgs::image_encodings::BGR8;
+    cv_debug.image = falseColorsMap;
+    cv_debug.header.stamp = msg_time;
+    pub_debug.publish(cv_debug.toImageMsg());
 }
 
 void quadmap::Publisher::publishDepthmap(ros::Time msg_time) {
@@ -106,7 +104,8 @@ void quadmap::Publisher::publishDepthmap(ros::Time msg_time) {
     depthNorm = depthmap_mat.clone();
     depthNorm = (depthNorm - minDepth_) / (maxDepth_ - minDepth_) * 255.0f;
     depthNorm.convertTo(depthNorm, CV_8U);
-    cv::applyColorMap(depthNorm, depthColor, cv::COLORMAP_JET); // https://docs.opencv.org/2.4/modules/contrib/doc/facerec/colormaps.html
+    cv::applyColorMap(depthNorm, depthColor,
+                      cv::COLORMAP_JET); // https://docs.opencv.org/2.4/modules/contrib/doc/facerec/colormaps.html
     for (int i = 0; i < depthmap_mat.rows; i++) {
         for (int j = 0; j < depthmap_mat.cols; j++) {
             if (std::isnan(depthmap_mat.at<float>(i, j))) {
@@ -139,8 +138,7 @@ void quadmap::Publisher::publishDepthmap(ros::Time msg_time) {
     cv_image_colored.encoding = sensor_msgs::image_encodings::BGR8;
     cv_image_colored.image = depthColor;
 
-    if(nh_.ok())
-    {
+    if (nh_.ok()) {
         cv_image.header.stamp = msg_time;
         cv_image_colored.header.stamp = msg_time;
         pub_depth.publish(cv_image.toImageMsg());
@@ -150,7 +148,7 @@ void quadmap::Publisher::publishDepthmap(ros::Time msg_time) {
         pub_reference.publish(cv_image_reference.toImageMsg());
         std::cout << "INFO: publishing depth map" << std::endl;
     }
-    if (debug_to_folder_){
+    if (debug_to_folder_) {
         char buffer[256];
         sprintf(buffer, "%s/%010d.png", save_path_.c_str(), int(depthmap_->getSeq()));
         printf("%s", buffer);
@@ -159,56 +157,50 @@ void quadmap::Publisher::publishDepthmap(ros::Time msg_time) {
 
 }
 
-void quadmap::Publisher::publishPointCloud(ros::Time msg_time)
-{
-  {
-    std::lock_guard<std::mutex> lock(depthmap_->getRefImgMutex());
-
-    const cv::Mat depth = depthmap_->getDepthmap();
-    // const cv::Mat depth = depthmap_->getDebugmap();
-
-    const cv::Mat ref_img = depthmap_->getReferenceImage();
-    const quadmap::SE3<float> T_world_ref = depthmap_->getT_world_ref();
-
-    const float fx = depthmap_->getFx();
-    const float fy = depthmap_->getFy();
-    const float cx = depthmap_->getCx();
-    const float cy = depthmap_->getCy();
-    pc->clear();
-
-    for(int y=0; y<depth.rows; ++y)
+void quadmap::Publisher::publishPointCloud(ros::Time msg_time) {
     {
-      for(int x=0; x<depth.cols; ++x)
-      {
-        float depth_value = depth.at<float>(y, x);
-        if(depth_value < 1.0)
-          continue;
-        const float3 f = normalize( make_float3((x-cx)/fx, (y-cy)/fy, 1.0f) );
-        const float3 xyz = T_world_ref * ( f * depth_value );
+        std::lock_guard<std::mutex> lock(depthmap_->getRefImgMutex());
 
-        PointType p;
-        p.x = xyz.x;
-        p.y = xyz.y;
-        p.z = xyz.z;
-        const uint8_t intensity = ref_img.at<uint8_t>(y, x);
-        p.intensity = intensity;
-        pc->push_back(p);
-      }
+        const cv::Mat depth = depthmap_->getDepthmap();
+        // const cv::Mat depth = depthmap_->getDebugmap();
+
+        const cv::Mat ref_img = depthmap_->getReferenceImage();
+        const quadmap::SE3<float> T_world_ref = depthmap_->getT_world_ref();
+
+        const float fx = depthmap_->getFx();
+        const float fy = depthmap_->getFy();
+        const float cx = depthmap_->getCx();
+        const float cy = depthmap_->getCy();
+        pc->clear();
+
+        for (int y = 0; y < depth.rows; ++y) {
+            for (int x = 0; x < depth.cols; ++x) {
+                float depth_value = depth.at<float>(y, x);
+                if (depth_value < 1.0)
+                    continue;
+                const float3 f = normalize(make_float3((x - cx) / fx, (y - cy) / fy, 1.0f));
+                const float3 xyz = T_world_ref * (f * depth_value);
+
+                PointType p;
+                p.x = xyz.x;
+                p.y = xyz.y;
+                p.z = xyz.z;
+                const uint8_t intensity = ref_img.at<uint8_t>(y, x);
+                p.intensity = intensity;
+                pc->push_back(p);
+            }
+        }
     }
-  }
-  if (!pc->empty())
-  {
-    if(nh_.ok())
-    {
-      pcl_conversions::toPCL(msg_time, pc->header.stamp);
-      pc->header.frame_id = "/world";
-      pub_pc.publish(pc);
+    if (!pc->empty()) {
+        if (nh_.ok()) {
+            pcl_conversions::toPCL(msg_time, pc->header.stamp);
+            pc->header.frame_id = "/world";
+            pub_pc.publish(pc);
+        }
     }
-  }
 }
 
-void quadmap::Publisher::publishDepthmapAndPointCloud(ros::Time msg_time)
-{
+void quadmap::Publisher::publishDepthmapAndPointCloud(ros::Time msg_time) {
     publishDepthmap(msg_time);
     publishDebugmap(msg_time);
     publishPointCloud(msg_time);
