@@ -45,7 +45,7 @@ namespace quadmap {
         void setFrameName(const std::string &frame_name);
 
         const std::string &getFrameName() const;
-        bool setImuCam();
+        bool setImuCam(const std::string &target_frame, const std::string &source_frame);
 
     private:
         void denoiseAndPublishResults();

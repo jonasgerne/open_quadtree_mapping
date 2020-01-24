@@ -301,11 +301,12 @@ const std::string &quadmap::DepthmapNode::getFrameName() const {
     return tf_goal_frame_;
 }
 
-bool quadmap::DepthmapNode::setImuCam() {
+bool quadmap::DepthmapNode::setImuCam(const std::string &target_frame, const std::string &source_frame) {
     try {
         tf::TransformListener tmp_listener;
-        tmp_listener.waitForTransform("/imu", "/cam02", ros::Time(0), ros::Duration(3.0));
-        tmp_listener.lookupTransform("/imu", "/cam02", ros::Time(0), imu_cam_);
+        tmp_listener.waitForTransform(target_frame, source_frame, ros::Time(0), ros::Duration(3.0));
+        tmp_listener.lookupTransform(target_frame, source_frame, ros::Time(0), imu_cam_);
+        tmp_listener.clear();
         return true;
     } catch (tf::TransformException &ex) {
         return false;}
