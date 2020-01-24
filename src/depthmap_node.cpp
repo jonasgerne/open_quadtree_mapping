@@ -153,7 +153,7 @@ bool quadmap::DepthmapNode::init() {
 }
 
 
-void quadmap::DepthmapNode::Msg_Callback(
+void quadmap::DepthmapNode::Callback_pose_msg(
         const sensor_msgs::ImageConstPtr &image_input,
         const geometry_msgs::PoseStampedConstPtr &pose_input) {
     printf("\n\n\n");
@@ -187,10 +187,11 @@ void quadmap::DepthmapNode::Msg_Callback(
         denoiseAndPublishResults();
 }
 
-void quadmap::DepthmapNode::Msg_Callback_tf(
+// use this callback when subscribed to a transform message
+void quadmap::DepthmapNode::Callback_transform_msg(
         const sensor_msgs::ImageConstPtr &image_input,
         const geometry_msgs::TransformStampedConstPtr &trans_input) {
-    printf("\n\n\n");
+    //printf("\n\n\n");
     num_msgs_ += 1;
     current_msg_time = image_input->header.stamp;
     if (!depthmap_) {
@@ -229,7 +230,7 @@ void quadmap::DepthmapNode::Msg_Callback_tf(
         denoiseAndPublishResults();
 }
 
-void quadmap::DepthmapNode::imageCb(const sensor_msgs::ImageConstPtr &image_input) {
+void quadmap::DepthmapNode::Callback_tf_lookup(const sensor_msgs::ImageConstPtr &image_input) {
     printf("\n\n");
     num_msgs_ += 1;
     current_msg_time = image_input->header.stamp;

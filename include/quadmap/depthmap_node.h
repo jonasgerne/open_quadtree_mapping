@@ -32,15 +32,15 @@ namespace quadmap {
 
         bool init();
 
-        void Msg_Callback(
+        void Callback_pose_msg(
                 const sensor_msgs::ImageConstPtr &image_input,
                 const geometry_msgs::PoseStampedConstPtr &pose_input);
 
-        void Msg_Callback_tf(
+        void Callback_transform_msg(
                 const sensor_msgs::ImageConstPtr &image_input,
                 const geometry_msgs::TransformStampedConstPtr &trans_input);
 
-        void imageCb(const sensor_msgs::ImageConstPtr &image_input);
+        void Callback_tf_lookup(const sensor_msgs::ImageConstPtr &image_input);
 
         void setFrameName(const std::string &frame_name);
 

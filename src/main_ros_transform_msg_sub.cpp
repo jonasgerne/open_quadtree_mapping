@@ -50,13 +50,13 @@ int main(int argc, char **argv) {
     }
     ROS_INFO("Init ok.");
 
-    nh.param("use_tf_transforms", use_tf_transforms_, false);
+    nh.param("use_tf_lookup", use_tf_transforms_, false);
     if (!use_tf_transforms_) {
         image_sub_.subscribe(nh, "image", 1000);
         transform_sub_.subscribe(nh, "posestamped", 1000);
         dm_node.setImuCam();
         sync_.connectInput(image_sub_, transform_sub_);
-        sync_.registerCallback(boost::bind(&quadmap::DepthmapNode::Msg_Callback_tf, &dm_node, _1, _2));
+        sync_.registerCallback(boost::bind(&quadmap::DepthmapNode::Callback_transform_msg, &dm_node, _1, _2));
     } else {
         std::string image_topic = nh.resolveName("image");
         std::string cam_info_topic = ros::names::parentNamespace(image_topic) + "/camera_info";
@@ -64,7 +64,7 @@ int main(int argc, char **argv) {
         boost::shared_ptr<const sensor_msgs::CameraInfo> cam_info_ptr = ros::topic::waitForMessage<sensor_msgs::CameraInfo>(
                 cam_info_topic, nh, ros::Duration(30));
         dm_node.setFrameName(cam_info_ptr->header.frame_id);
-        sub_ = it_.subscribe(image_topic, 10, &quadmap::DepthmapNode::imageCb, &dm_node);
+        sub_ = it_.subscribe(image_topic, 1000, &quadmap::DepthmapNode::Callback_tf_lookup, &dm_node);
         ROS_INFO("Topic: %s, NumPub: %d, Transport: %s", sub_.getTopic().c_str(), sub_.getNumPublishers(),
                  sub_.getTransport().c_str());
     }

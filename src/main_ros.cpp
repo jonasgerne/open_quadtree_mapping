@@ -44,7 +44,7 @@ int main(int argc, char **argv)
     message_filters::Subscriber<sensor_msgs::Image> image_sub(nh, "image", 1000);
     message_filters::Subscriber<geometry_msgs::PoseStamped> pose_sub(nh, "posestamped", 1000);
     message_filters::Synchronizer<exact_policy> sync(exact_policy(1000), image_sub, pose_sub);
-    sync.registerCallback(boost::bind(&quadmap::DepthmapNode::Msg_Callback, &dm_node, _1, _2));
+    sync.registerCallback(boost::bind(&quadmap::DepthmapNode::Callback_pose_msg, &dm_node, _1, _2));
 
     while(ros::ok())
     {
