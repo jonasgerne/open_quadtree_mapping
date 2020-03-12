@@ -1,6 +1,10 @@
 SET(PROJECT_NAME open_quadtree_mapping)
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.3)
 PROJECT(${PROJECT_NAME})
+
+list(APPEND CMAKE_PREFIX_PATH "/opt/ros/kinetic")
+list(APPEND CMAKE_PREFIX_PATH "/opt/ros/kinetic/share/catkin/cmake")
+
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/CMakeModules/")
 
 option(WITH_ROS "Compile with ROS wrapper" True)

@@ -70,6 +70,8 @@ __global__ void image_to_cost(
 {
     const int cost_downsampling = match_parameter_devptr->cost_downsampling;
 
+    constexpr int patch_radius = 5;
+
 	const int x = blockIdx.x * cost_downsampling;
 	const int y = blockIdx.y * cost_downsampling;
 	const int depth_id = threadIdx.x;
@@ -81,8 +83,8 @@ __global__ void image_to_cost(
 	const int my_quadsize = 1 << tex2D(quadtree_tex, x, y);
 
     // Check out of bounds
-	if (x >= width - 1 || y >= height - 1 || x <= 0 || y <= 0)
-		return;
+    if (x >= width - 1 || y >= height - 1 || x <= 0 || y <= 0)
+        return;
 
 	// Skip if not selected by quadtree
     if (((x % my_quadsize) != 0) || ((y % my_quadsize) != 0))
@@ -108,12 +110,14 @@ __global__ void image_to_cost(
 	//read memory
 	PinholeCamera camera = match_parameter_devptr->camera_model;
 	FrameElement my_reference = match_parameter_devptr->framelist_dev[my_frame_id];
-	float my_patch[3][3];
-	for(int j = 0; j < 3; j++)
+
+	float my_patch[patch_radius * 2 + 1][patch_radius * 2 + 1];
+
+	for(int j = -patch_radius; j <= patch_radius; j++)
 	{
-		for(int i = 0; i < 3; i++)
+		for(int i = -patch_radius; i <= patch_radius; i++)
 		{
-			my_patch[i][j] = tex2D(income_image_tex, x + i - 1.0 + 0.5, y + j - 1.0 + 0.5);
+			my_patch[i+patch_radius][j+patch_radius] = tex2D(income_image_tex, x + i + 0.5, y + j + 0.5);
 		}
 	}
 
@@ -136,21 +140,26 @@ __global__ void image_to_cost(
 	float v2v = income_to_ref.data(1,1);
 
     // Check bounds
-	if( point_x >= 2 && point_x < width - 2 && point_y >= 2 && point_y < height - 2)
+	if( point_x >= patch_radius && point_x < width - patch_radius && point_y >= patch_radius && point_y < height - patch_radius)
 	{
         // Sum cost over 3x3 patch
 		float my_cost = 0.0;
-		for(int j = -1; j <= 1; j++)
+		int my_count = 0;
+		for(int j = -patch_radius; j <= patch_radius; j++)
 		{
-			for(int i = -1; i <= 1; i++)
+			for(int i = -patch_radius; i <= patch_radius; i++)
 			{
 				int check_x = project_point.x + u2u * i + v2u * j + 0.5;
 				int check_y = project_point.y + u2v * i + v2v * j + 0.5;
-				my_cost += fabs(my_patch[i+1][j+1] - my_reference.frame_ptr->atXY(check_x, check_y));
+				if ((check_x >= 0) && (check_x < width) && (check_y >= 0) && (check_y < height)) {
+                    my_cost += fabs(my_patch[i + patch_radius][j + patch_radius] -
+                                    my_reference.frame_ptr->atXY(check_x, check_y));
+                    my_count++;
+                }
 			}
 		}
 
-		cost[depth_id * frame_num + frame_id] = my_cost;
+		cost[depth_id * frame_num + frame_id] = my_cost / (float)my_count;
 		aggregate_num[depth_id * frame_num + frame_id] = 1;
 	}
 	else

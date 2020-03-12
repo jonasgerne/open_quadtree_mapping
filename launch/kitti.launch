@@ -9,15 +9,17 @@ use KEYFRAME_NUM 5-->
     <param name="cam_cx" value="6.071928000000000338e+02" />
     <param name="cam_fy" value="7.188559999999999945e+02" />
     <param name="cam_cy" value="1.852156999999999982e+02" />
-        <!--downsample factor: 0 ~ 1-->
-    <param name="downsample_factor" value="0.5"/>
+
+    <param name="ego_to_cam" value="1.08050183637 -0.250338684856 0.729030174142 -0.503420278192 0.491834221609 -0.506211297434 0.498414731233"/>
+     <!--downsample factor: 0 ~ 1-->
+    <param name="downsample_factor" value="1"/>
     <param name="doBeliefPropagation" value="true" />
     <param name="useQuadtree" value="false" />
     <param name="doFusion" value="true" />
-    <param name="doGlobalUpsampling" value="false" />
+    <param name="doGlobalUpsampling" value="true" />
     <param name="semi2dense_ratio" value="1" />
     <param name="cost_downsampling" value="4" />
-    <param name="min_inlier_ratio_good" value="0.51" />
+    <param name="min_inlier_ratio_good" value="0.50" />
     <param name="min_inlier_ratio_bad" value="0.45" />
     <param name="prev_variance_factor" value="1.0" />
     <param name="new_variance_factor" value="1.0" />

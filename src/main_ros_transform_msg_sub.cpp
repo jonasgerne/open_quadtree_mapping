@@ -19,11 +19,8 @@
 
 #include <message_filters/subscriber.h>
 #include <message_filters/synchronizer.h>
-#include <message_filters/sync_policies/exact_time.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <sensor_msgs/Image.h>
-#include <sensor_msgs/PointCloud.h>
-#include <geometry_msgs/PoseStamped.h>
 
 #include <image_transport/image_transport.h>
 
@@ -42,7 +39,7 @@ int main(int argc, char **argv) {
     message_filters::Subscriber<sensor_msgs::Image> image_sub_;
     // message_filters::Subscriber<geometry_msgs::PoseStamped> pose_sub_;
     message_filters::Subscriber<geometry_msgs::TransformStamped> transform_sub_;
-    std::string target_frame, source_frame;
+    std::string target_frame, source_frame, transform_str;
     bool use_tf_transforms_;
 
     if (!dm_node.init()) {
@@ -52,11 +49,12 @@ int main(int argc, char **argv) {
     ROS_INFO("Init ok.");
     nh.param<std::string>("target_frame", target_frame, "imu");
     nh.param<std::string>("source_frame", source_frame, "cam02");
+    nh.param<std::string>("ego_to_cam", transform_str, "");
     nh.param("use_tf_lookup", use_tf_transforms_, false);
     if (!use_tf_transforms_) {
         image_sub_.subscribe(nh, "image", 1000);
         transform_sub_.subscribe(nh, "posestamped", 1000);
-        dm_node.setImuCam(target_frame, source_frame);
+        dm_node.setImuCam(transform_str);
         sync_.connectInput(image_sub_, transform_sub_);
         sync_.registerCallback(boost::bind(&quadmap::DepthmapNode::Callback_transform_msg, &dm_node, _1, _2));
     } else {

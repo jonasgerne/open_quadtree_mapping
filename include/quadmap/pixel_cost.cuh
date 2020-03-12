@@ -1,7 +1,7 @@
 #ifndef PIXEL_COST_CUH
 #define PIXEL_COST_CUH
 
-#define DEPTH_NUM 64
+#define DEPTH_NUM 128
 #include <cuda_runtime_api.h>
 #include <cuda.h>
 #include <vector_types.h>

@@ -301,6 +301,7 @@ const std::string &quadmap::DepthmapNode::getFrameName() const {
     return tf_goal_frame_;
 }
 
+// WARNING: not useful, works only if tf is already publishing
 bool quadmap::DepthmapNode::setImuCam(const std::string &target_frame, const std::string &source_frame) {
     try {
         tf::TransformListener tmp_listener;
@@ -310,4 +311,15 @@ bool quadmap::DepthmapNode::setImuCam(const std::string &target_frame, const std
         return true;
     } catch (tf::TransformException &ex) {
         return false;}
+}
+
+bool quadmap::DepthmapNode::setImuCam(const std::string &transform_str){
+    // TODO: add error handling, probably use strtof instead of scanf
+    float x, y, z, qx, qy, qz, qw;
+    sscanf(transform_str.c_str(), "%f %f %f %f %f %f %f", &x, &y, &z, &qx, &qy, &qz, &qw);
+    tf::Vector3 vec(x, y, z);
+    tf::Quaternion quat(qx, qy, qz, qw);
+    imu_cam_.setOrigin(vec);
+    imu_cam_.setRotation(quat);
+    return true;
 }

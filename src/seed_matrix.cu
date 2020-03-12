@@ -98,7 +98,7 @@ quadmap::SeedMatrix::SeedMatrix(
         else
             printf("%f ", (step_depth * i + min_depth));
     }
-    printf("\n");
+    //printf("\n");
 
     //for cpu async
     cudaStreamCreate(&swict_semidense_stream1);
@@ -189,7 +189,7 @@ bool quadmap::SeedMatrix::add_frames(
     // Epipolar depth search and update
     // Depthmap filtering
     // Project semi-dense depth from keyframe to frame
-    update_keyframe();
+    // update_keyframe();
 
     // distance or angle between keyframe pose and income pose is too big.
     if (need_switchkeyframe()) {
